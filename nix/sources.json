@@ -1,0 +1,62 @@
+{
+    "firmware": {
+        "branch": "master",
+        "description": "This repository contains pre-compiled binaries of the current Raspberry Pi  kernel and modules, userspace libraries, and bootloader/GPU firmware.",
+        "homepage": "",
+        "owner": "raspberrypi",
+        "repo": "firmware",
+        "rev": "5f95dfda0edaac1a353400915a92bcc61008c780",
+        "sha256": "0j5m50cmmr11m3h8kk89j1pqkdqr7mzdzg04ayiqvfhvy32qqlg8",
+        "type": "tarball",
+        "url": "https://github.com/raspberrypi/firmware/archive/5f95dfda0edaac1a353400915a92bcc61008c780.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "niv": {
+        "branch": "master",
+        "description": "Easy dependency management for Nix projects",
+        "homepage": "https://github.com/nmattia/niv",
+        "owner": "nmattia",
+        "repo": "niv",
+        "rev": "29ddaaf4e099c3ac0647f5b652469dfc79cd3b53",
+        "sha256": "1va6myp07gkspgxfch8z3rs9nyvys6jmgzkys6a2c4j09qxp1bs0",
+        "type": "tarball",
+        "url": "https://github.com/nmattia/niv/archive/29ddaaf4e099c3ac0647f5b652469dfc79cd3b53.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "nixpkgs": {
+        "branch": "nixos-21.05",
+        "description": "A read-only mirror of NixOS/nixpkgs tracking the released channels. Send issues and PRs to",
+        "homepage": "https://github.com/NixOS/nixpkgs",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "5ebb1dca9bb056649cbd023f953c0c4e7970bb72",
+        "sha256": "04qsjsilkhql9a7fdvjq1xj1p6j3dflrvhxbqzch5qn6b87wlh4z",
+        "type": "tarball",
+        "url": "https://github.com/nixos/nixpkgs/archive/5ebb1dca9bb056649cbd023f953c0c4e7970bb72.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "rpi-eeprom": {
+        "branch": "master",
+        "description": "Installation scripts and binaries for the closed sourced Raspberry Pi 4 EEPROMs",
+        "homepage": "https://www.raspberrypi.org/documentation/hardware/raspberrypi/booteeprom.md",
+        "owner": "raspberrypi",
+        "repo": "rpi-eeprom",
+        "rev": "54a9796abbee59067bff9da6b90c1014178f2c21",
+        "sha256": "0yp7bn444n6yisp4hiblrm00rrvrf213amzb4sh96mlb5nhxspqk",
+        "type": "tarball",
+        "url": "https://github.com/raspberrypi/rpi-eeprom/archive/54a9796abbee59067bff9da6b90c1014178f2c21.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "rpi-open-firmware": {
+        "branch": "master",
+        "description": "Open source VPU side bootloader for Raspberry Pi.",
+        "homepage": null,
+        "owner": "librerpi",
+        "repo": "rpi-open-firmware",
+        "rev": "059d2e0fc19e2d0f30bb74d42a82a2654f498f2d",
+        "sha256": "0crl6qgw69xs8a8lsp82k0c3rc1vgvkynp2if6lwhzxzsbw7zqbd",
+        "type": "tarball",
+        "url": "https://github.com/librerpi/rpi-open-firmware/archive/059d2e0fc19e2d0f30bb74d42a82a2654f498f2d.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    }
+}
