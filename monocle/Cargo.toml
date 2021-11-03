@@ -1,8 +1,58 @@
 [package]
 name = "monocle"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+approx = "*"
+chrono = "*"
+chrono-tz = "*"
+time = "*"
+memmap = "*"
+nix = "*"
+#tock-registers = "*"
+byteorder = "*"
+serial = "*"
+#liblinear = "*"
+scan_fmt = "*"
+#libsvm = "*"
+linfa = "*" # { version = "*", features = ["intel-mkl-system"] }
+linfa-elasticnet = "*"
+#linfa-datasets = { version = "*", features = ["diabetes"] }
+ndarray = "*"
+ndarray-linalg = "*"
+libc = "*"
+rand = "*"
+serde = "*"
+serde_json = "*"
+serde_cbor = "*"
+serde_derive = "*"
+bincode = "*"
+rustyline = "*"
+exr = "*"
+drm = "*"
+#gbm = "*"
+image = "*"
+imageproc = "*"
+once_cell = "*"
+ordered-float = { version = "*", features = ["rand", "serde"] }
+log = { version = "*", features = ["max_level_trace", "release_max_level_trace"] }
+stderrlog = "*"
+float-ord = "*"
+
+[[bin]]
+name = "raspi"
+test = false
+bench = false
+
+[[bin]]
+name = "laptop"
+test = false
+bench = false
+
+[[bin]]
+name = "test"
+test = false
+bench = false

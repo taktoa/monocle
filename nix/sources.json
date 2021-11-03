@@ -1,14 +1,38 @@
 {
+    "cargo2nix": {
+        "branch": "master",
+        "description": "Build Rust crates with Nix",
+        "homepage": "",
+        "owner": "taktoa",
+        "repo": "cargo2nix",
+        "rev": "84efc708adcb94ce906fc5423f3dd94f3296a2a1",
+        "sha256": "18405aa7f691167y8mzp265msaa22nq6qdz7fb7vwjpnhriwgazw",
+        "type": "tarball",
+        "url": "https://github.com/taktoa/cargo2nix/archive/84efc708adcb94ce906fc5423f3dd94f3296a2a1.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
     "firmware": {
         "branch": "master",
         "description": "This repository contains pre-compiled binaries of the current Raspberry Pi  kernel and modules, userspace libraries, and bootloader/GPU firmware.",
         "homepage": "",
         "owner": "raspberrypi",
         "repo": "firmware",
-        "rev": "5f95dfda0edaac1a353400915a92bcc61008c780",
-        "sha256": "0j5m50cmmr11m3h8kk89j1pqkdqr7mzdzg04ayiqvfhvy32qqlg8",
+        "rev": "ca52e7c1303cb6caebfb88b50832d32c907ebcff",
+        "sha256": "1bb6qllhnkhxg4x80l6g74zkkvns9x03z5sa9zvrkgypwmbbp2fa",
         "type": "tarball",
-        "url": "https://github.com/raspberrypi/firmware/archive/5f95dfda0edaac1a353400915a92bcc61008c780.tar.gz",
+        "url": "https://github.com/raspberrypi/firmware/archive/ca52e7c1303cb6caebfb88b50832d32c907ebcff.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "naersk": {
+        "branch": "master",
+        "description": "Build rust crates in Nix. No configuration, no code generation, no IFD. Sandbox friendly. [maintainer: ???]",
+        "homepage": "",
+        "owner": "taktoa",
+        "repo": "naersk",
+        "rev": "d816d7307428e20bb52ce9214c97692ef5b692cf",
+        "sha256": "1gph2m7clbbkfnpmfrr7daj5qvcvxj6j0cs3xzkps30wpjbn122l",
+        "type": "tarball",
+        "url": "https://github.com/taktoa/naersk/archive/d816d7307428e20bb52ce9214c97692ef5b692cf.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "niv": {
@@ -35,6 +59,18 @@
         "url": "https://github.com/nixos/nixpkgs/archive/5ebb1dca9bb056649cbd023f953c0c4e7970bb72.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
+    "nixpkgs-mozilla": {
+        "branch": "master",
+        "description": "Mozilla overlay for Nixpkgs.",
+        "homepage": "",
+        "owner": "mozilla",
+        "repo": "nixpkgs-mozilla",
+        "rev": "7c1e8b1dd6ed0043fb4ee0b12b815256b0b9de6f",
+        "sha256": "1a71nfw7d36vplf89fp65vgj3s66np1dc0hqnqgj5gbdnpm1bihl",
+        "type": "tarball",
+        "url": "https://github.com/mozilla/nixpkgs-mozilla/archive/7c1e8b1dd6ed0043fb4ee0b12b815256b0b9de6f.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
     "rpi-eeprom": {
         "branch": "master",
         "description": "Installation scripts and binaries for the closed sourced Raspberry Pi 4 EEPROMs",
@@ -57,6 +93,18 @@
         "sha256": "0crl6qgw69xs8a8lsp82k0c3rc1vgvkynp2if6lwhzxzsbw7zqbd",
         "type": "tarball",
         "url": "https://github.com/librerpi/rpi-open-firmware/archive/059d2e0fc19e2d0f30bb74d42a82a2654f498f2d.tar.gz",
+        "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
+    },
+    "rust-overlay": {
+        "branch": "master",
+        "description": "Pure and reproducible nix overlay of binary distributed rust toolchains",
+        "homepage": "",
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "rev": "5e677c6fed9077cb9e2d037e2679676895b6e953",
+        "sha256": "17s5xgxxki6hny82844186zr9m0rp6vyml5004jik00fa291bh83",
+        "type": "tarball",
+        "url": "https://github.com/oxalica/rust-overlay/archive/5e677c6fed9077cb9e2d037e2679676895b6e953.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }

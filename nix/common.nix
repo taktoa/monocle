@@ -13,6 +13,7 @@ self: super: {
     cp -r ${self.sources.firmware}/modules/${kernel} $out/lib/modules/
   '';
   libftdi = null;
+  atftp = super.atftp.override { gcc = null; readline = null; };
   openocd = super.openocd.overrideAttrs (old: {
     src = self.fetchFromGitHub {
       owner = "raspberrypi";
@@ -21,7 +22,10 @@ self: super: {
       fetchSubmodules = true;
       sha256 = "sha256-o7shTToj6K37Xw+Crwif5WwB4GfPYIiMJ/o/9u3xrsE=";
     };
-    nativeBuildInputs = old.nativeBuildInputs ++ [ nativePkgs.autoreconfHook nativePkgs.gcc ];
+    nativeBuildInputs = old.nativeBuildInputs ++ [
+      nativePkgs.autoreconfHook
+      nativePkgs.gcc
+    ];
     #buildInputs = old.buildInputs ++ [ self.tcl ];
     preConfigure = ''
       pwd
@@ -33,7 +37,7 @@ self: super: {
     ];
   });
   shrunken_busybox = self.runCommand "shrunk-busybox" {
-    busybox = self.busybox.override { enableStatic=true; };
+    busybox = self.busybox.override { enableStatic = true; };
     nativeBuildInputs = [ self.buildPackages.nukeReferences ];
   } ''
     mkdir $out
@@ -118,7 +122,22 @@ self: super: {
       negative-time-to-live   services        0
       shared                  services        yes
     '';
-    passAsFile = [ "nsswitch" "passwd" "sshd_config" "nscd" "group" ];
+    services = ''
+      tftp             69/tcp     # Trivial File Transfer
+      tftp             69/udp     # Trivial File Transfer
+      ssh              22/tcp     # The Secure Shell (SSH) Protocol
+      ssh              22/udp     # The Secure Shell (SSH) Protocol
+      ssh              22/sctp    # SSH
+    '';
+    protocols = ''
+      tcp              6 TCP            # Transmission Control
+      udp              17 UDP           # User Datagram
+      sctp             132 SCTP         # Stream Control Transmission Protocol
+    '';
+
+    passAsFile = [
+      "nsswitch" "passwd" "sshd_config" "nscd" "group" "services" "protocols"
+    ];
     nativeBuildInputs = [ nativePkgs.nukeReferences ];
   } ''
     mkdir -p $out/ssh
@@ -136,8 +155,10 @@ self: super: {
     cp $groupPath group
     cp $sshd_configPath ssh/sshd_config
     cp $nscdPath nscd.conf
+    cp $servicesPath services
+    cp $protocolsPath protocols
   '';
-  # 5.4.72-v7l+
+  # 5.10.81-v7l+
   moduleClosureForKernel = kernel: self.makeModulesClosure {
     kernel = self.modulesForKernel kernel;
     firmware = self.buildEnv {
@@ -154,6 +175,8 @@ self: super: {
       "gadgetfs" # for custom userland gadgets
       "usb_f_hid"
       "usb_f_rndis"
+      "vc4"
+      "v3d"
     ] ++ self.extra_modules;
   };
   extra_modules = [];
@@ -161,22 +184,26 @@ self: super: {
     name = "bin";
     paths = [
       self.shrunken_busybox
-      #self.boottime
+      self.boottime
+      #self.rpi-tools.utils
       #self.gdb
       self.shrunkenPackages
     ] ++ self.extra_utils;
   };
   libnl = super.libnl.override { pythonSupport = false; };
   shrunkenPackages = self.runCommandCC "shrunken-packages" { nativeBuildInputs = [ nativePkgs.nukeReferences ]; } ''
-    mkdir -p $out/{bin,lib}
-    cp ${self.wpa_supplicant}/bin/wpa_supplicant $out/bin
-    cp ${self.avahi}/bin/avahi-daemon $out/bin
+    mkdir -p $out/{bin,sbin,lib}
+    #cp {self.wpa_supplicant}/bin/wpa_supplicant $out/bin
+    #cp {self.avahi}/bin/avahi-daemon $out/bin
     cp ${self.strace}/bin/strace $out/bin
-    cp ${self.openssh}/bin/sshd $out/bin
+    #cp {self.openssh}/bin/sshd $out/bin
     #cp {self.iproute}/bin/ip $out/bin
     cp ${self.dropbear}/bin/dropbear $out/bin/
     cp ${self.glibcCross.bin}/bin/nscd $out/bin
     #cp {self.smi-test}/bin/smi-test $out/bin
+    #cp {self.atftp}/bin/atftp $out/bin
+    cp -v ${/home/remy/Downloads/vcdbg} $out/sbin/vcdbg
+    chmod +x $out/sbin/vcdbg
 
     cp ${self.hidapi}/lib/libhidapi-hidraw.so.0 $out/lib
     cp ${self.libusb1}/lib/libusb-1.0.so.0 $out/lib
@@ -194,7 +221,7 @@ self: super: {
     cp ${self.libcap.lib}/lib/libcap.so.2 $out/lib
     cp ${self.libgcrypt.out}/lib/libgcrypt.so.20 $out/lib
     cp ${self.libgpgerror}/lib/libgpg-error.so.0 $out/lib
-    cp ${self.avahi}/lib/lib{avahi-common.so.3,avahi-core.so.7} $out/lib
+    #cp {self.avahi}/lib/lib{avahi-common.so.3,avahi-core.so.7} $out/lib
     cp ${self.libdaemon}/lib/libdaemon.so.0 $out/lib
     cp ${self.expat}/lib/libexpat.so.1 $out/lib
     cp ${self.libunwind}/lib/lib{unwind-ptrace.so.0,unwind-arm.so.8,unwind.so.8} $out/lib
@@ -234,12 +261,9 @@ self: super: {
     rm fixup.dat fixup*db.dat fixup*x.dat fixup*cd.dat
     rm bcm{2708,2710,2709}*dtb
   '';
-  kernel_version = "5.4.72";
+  kernel_version = "5.10.81";
   kernelVersionList = [
-    "+"     # pi0
-    "-v7+"
     "-v7l+"
-    "-v8+"
   ];
   kernel_versions = map (x: "${self.kernel_version}${x}") self.kernelVersionList;
   modulesForKernels = self.buildEnv {
@@ -287,6 +311,7 @@ self: super: {
     text = ''
       #!/bin/ash
 
+      set -x
       mount -t proc proc proc
       mount -t sysfs sys sys
       mount -t devtmpfs dev dev
@@ -295,15 +320,13 @@ self: super: {
       mount -t devpts devpts /dev/pts
       mount -t debugfs debugfs /sys/kernel/debug
 
-      boottime
+      exec > /dev/tty1 2>&1 < /dev/tty1
 
       depmod
-      serial=$(cut -c9-16 < /proc/device-tree/serial-number)
+      export serial=$(cut -c9-16 < /proc/device-tree/serial-number)
       hostname pi-''${serial}
 
       ${self.initrd_script}
-
-      boottime
 
       exec ash
     '';
@@ -323,35 +346,47 @@ self: super: {
     cd $out
     ln -s ${self.firmware-with-custom-overlays}/* .
     ln -s ${self.initrd}/initrd initrd
+    ln -s ${self.monocle}/bin/raspi raspi
+    cp ${./modulator.edid} modulator.edid
     ls -lLhs initrd
     cat <<EOF > config.txt
     dtoverlay=dwc2
     dtoverlay=smi
     dtoverlay=smi-dev
     dtoverlay=smi-speed
+    dtoverlay=vc4-fkms-v3d
     dtparam=axiperf
     enable_uart=1
     uart_2ndstage=1
     dtoverlay=disable-bt
+    hdmi_edid_file=1
+    hdmi_edid_filename:1=modulator.edid
+    #hdmi_group=2
+    #hdmi_enable_4kp60=1
+    hdmi_force_hotplug:1=1
+    disable_overscan=1
+
+    hdmi_pixel_freq_limit:1=400000000
+    hdmi_timings:1=1440 0 100 20 100 2560 0 20 2 24 0 0 0 40 0 173040000 0
+    hdmi_drive:1=2
+    hdmi_group:1=2
+    hdmi_mode:1=87
+    hdmi_force_mode:1=1
+    #disable_overscan=1
+    max_framebuffer_width=2560
+    max_framebuffer_height=2560
+    display_rotate=0
+    framebuffer_width=1440
+    framebuffer_height=2560
 
     initramfs initrd followkernel
     EOF
 
     cat <<EOF > cmdline.txt
-    nada console=tty1 console=serial0,115200
+    nada console=tty1 console=serial0,115200 iomem=relaxed
     EOF
 
     ${self.trimRootDir}
-  '';
-  util = self.runCommand "util" {} ''
-    mkdir $out
-    cd $out
-    ln -sv ${self.rootDir} rootdir
-    ln -sv ${self.closure} closure
-  '';
-  util2 = (import <nixpkgs> {system="aarch64-linux";}).runCommand "util2" {} ''
-    ${self.shrunkenPackages}/bin/strace --help
-    touch $out
   '';
   rootZip = self.runCommand "rootzip" { nativeBuildInputs = [ self.buildPackages.zip ]; } ''
     cd ${self.rootDir}
@@ -360,5 +395,49 @@ self: super: {
     cd $out
     mkdir nix-support
     echo "file binary-dist $out/root.zip" > nix-support/hydra-build-products
+  '';
+  # monocle = self.callPackage ../monocle {
+  #   rustPlatform = self.makeRustPlatform {
+  #     cargo = (self.buildPackages.rustChannelOf { date = "2021-11-15"; channel = "nightly"; }).rust;
+  #     rustc = (self.buildPackages.rustChannelOf { date = "2021-11-15"; channel = "nightly"; }).rust;
+  #   };
+  # };
+  #monocle = self.naersk.buildPackage {
+  #  name = "monocle";
+  #  version = "0.1.0";
+  #  src = self.lib.cleanSourceWith {
+  #    filter = p: t: !(t == "directory" && baseNameOf p == "target");
+  #    src = self.lib.cleanSource ../monocle;
+  #  };
+  #  buildInputs = [
+  #    self.libdrm
+  #  ];
+  #  CARGO_BUILD_TARGET = self.rust.toRustTargetSpec self.stdenv.hostPlatform;
+  #  #singleStep = true;
+  #};
+  extra_utils = [
+    self.atftp
+    self.dtc
+  ];
+  initrd_script = ''
+    set -x
+    ip link set dev eth0 up
+    ip addr add 192.168.3.2/32 dev eth0
+    ip route add 192.168.3.0/24 dev eth0
+    mkdir -pv /etc/dropbear /var/log
+    touch /var/log/lastlog
+    /bin/dropbear -R -E &
+    modprobe vc4
+    #modprobe v3d
+    while test ! -f bin/raspi; do
+        atftp -g -r "$serial/raspi" -l bin/raspi 192.168.3.1
+    done
+    chmod +x bin/raspi
+    mkdir -pv /mnt
+    mount /dev/sda1 /mnt
+    export RUST_BACKTRACE=full
+    printf "\n[------- REBOOT -------]\n" >> /mnt/log.txt
+    /bin/raspi >> /mnt/log.txt 2>&1 &
+    #atftp -p -l /calibration.txt 192.168.3.1
   '';
 }

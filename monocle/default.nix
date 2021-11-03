@@ -1,17 +1,25 @@
 { lib, stdenv
 , fetchFromGitHub
 , rustPlatform
+, pkgs
 }:
 
 rustPlatform.buildRustPackage rec {
   pname = "monocle";
   version = "0.1.0";
 
-  src = lib.cleanSource ./.;
+  src = lib.cleanSourceWith {
+    filter = p: t: !(t == "directory" && baseNameOf p == "target");
+    src = lib.cleanSource ./.;
+  };
 
-  cargoSha256 = "08w5j5nc85nq8s4hbi1qij9bsjkwc72jylz36s6kz0mf4k617slr";
+  cargoSha256 = "10rvxjdl3w5hjrxjz7qmrk1vrf1ybis797ydp5pbpxymjqkcndzm";
 
-  nativeBuildInputs = [];
+  #nativeBuildInputs = [pkgs.pkgconfig];
+  buildInputs = [
+    pkgs.libdrm
+    pkgs.openblas
+  ]; #with pkgs; [openblas mkl openssl];
 
   meta = with lib; {
     description = "Software for a single pixel camera";
