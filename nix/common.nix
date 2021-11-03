@@ -287,6 +287,7 @@ self: super: {
     text = ''
       #!/bin/ash
 
+      set -x
       mount -t proc proc proc
       mount -t sysfs sys sys
       mount -t devtmpfs dev dev
@@ -295,15 +296,14 @@ self: super: {
       mount -t devpts devpts /dev/pts
       mount -t debugfs debugfs /sys/kernel/debug
 
-      boottime
+      ls -lh /proc/self/fd > /dev/tty1
+      exec > /dev/tty1 2>&1 < /dev/tty1
 
       depmod
       serial=$(cut -c9-16 < /proc/device-tree/serial-number)
       hostname pi-''${serial}
 
       ${self.initrd_script}
-
-      boottime
 
       exec ash
     '';
@@ -338,7 +338,7 @@ self: super: {
     EOF
 
     cat <<EOF > cmdline.txt
-    nada console=tty1 console=serial0,115200
+    nada console=tty1 console=serial0,115200 iomem=relaxed
     EOF
 
     ${self.trimRootDir}
