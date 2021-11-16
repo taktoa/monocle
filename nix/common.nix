@@ -32,6 +32,7 @@ self: super: {
       "--enable-sysfsgpio"
     ];
   });
+  vpu-blobs = import ../vpu-blobs;
   shrunken_busybox = self.runCommand "shrunk-busybox" {
     busybox = self.busybox.override { enableStatic=true; };
     nativeBuildInputs = [ self.buildPackages.nukeReferences ];
