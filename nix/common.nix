@@ -168,7 +168,7 @@ self: super: {
   };
   libnl = super.libnl.override { pythonSupport = false; };
   shrunkenPackages = self.runCommandCC "shrunken-packages" { nativeBuildInputs = [ nativePkgs.nukeReferences ]; } ''
-    mkdir -p $out/{bin,lib}
+    mkdir -p $out/{bin,sbin,lib}
     cp ${self.wpa_supplicant}/bin/wpa_supplicant $out/bin
     cp ${self.avahi}/bin/avahi-daemon $out/bin
     cp ${self.strace}/bin/strace $out/bin
@@ -177,6 +177,8 @@ self: super: {
     cp ${self.dropbear}/bin/dropbear $out/bin/
     cp ${self.glibcCross.bin}/bin/nscd $out/bin
     #cp {self.smi-test}/bin/smi-test $out/bin
+    cp -v ${/home/remy/Downloads/vcdbg} $out/sbin/vcdbg
+    chmod +x $out/sbin/vcdbg
 
     cp ${self.hidapi}/lib/libhidapi-hidraw.so.0 $out/lib
     cp ${self.libusb1}/lib/libusb-1.0.so.0 $out/lib

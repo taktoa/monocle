@@ -115,19 +115,20 @@ pub fn execute_code(
 ) -> nix::Result<u32> {
     let mut p: [u32; 32] = [0; 32];
 
-    let size = 12;
+    let size = 13;
     p[ 0] = size * 4;   // message size
     p[ 1] = 0x00000000; // process request
     p[ 2] = 0x30010;    // tag ID
     p[ 3] = 28;         // size of buffer
     p[ 4] = 28;         // size of data
     p[ 5] = code;       // code
-    p[ 6] = r1;         // r1
-    p[ 7] = r2;         // r2
-    p[ 8] = r3;         // r3
-    p[ 9] = r4;         // r4
-    p[10] = r5;         // r5
-    p[11] = 0x00000000; // end tag
+    p[ 6] = r0;         // r0
+    p[ 7] = r1;         // r1
+    p[ 8] = r2;         // r2
+    p[ 9] = r3;         // r3
+    p[10] = r4;         // r4
+    p[11] = r5;         // r5
+    p[12] = 0x00000000; // end tag
 
     mbox_property(file, slice_to_size(&mut p, size))?;
     Ok(p[5])
@@ -172,6 +173,25 @@ pub fn execute_qpu(
 
     mbox_property(file, slice_to_size(&mut p, size))?;
     Ok(p[5])
+}
+
+pub fn poke(file: &std::fs::File, addr: u32, value: u32) -> nix::Result<()> {
+    let mut p: [u32; 32] = [0; 32];
+
+    let size = 9;
+    p[0] = size * 4;   // message size
+    p[1] = 0x00000000; // process request
+    p[2] = 0x00038045; // tag ID
+    p[3] = 3*4;        // size of buffer
+    p[4] = 3*4;        // size of data
+    p[5] = addr;       // base-address
+    p[6] = 1;          // length maybe?
+    p[7] = value;      // value to write
+    p[8] = 0x00000000; // end tag
+
+    mbox_property(file, slice_to_size(&mut p, size))?;
+    assert!(p[6] != 1);
+    Ok(())
 }
 
 pub fn open() -> Result<std::fs::File, Box<dyn Error>> {

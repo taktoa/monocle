@@ -8,29 +8,36 @@ pub mod pantilt;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut result: Option<u32> = None;
+
     {
         println!("Beginning of program");
         let mbox = mailbox::open()?;
         println!("After opening mailbox");
         let handle = mailbox::mem_alloc(
             &mbox, 64, 8,
-            mailbox::MEM_FLAG_DIRECT | mailbox::MEM_FLAG_HINT_PERMALOCK)?;
+            mailbox::MEM_FLAG_DIRECT)?;
+        println!("REMY DEBUG: handle is {}", handle);
+        //  | mailbox::MEM_FLAG_HINT_PERMALOCK
         println!("After allocating memory");
         let ptr = mailbox::mem_lock(&mbox, handle)?;
+        println!("REMY DEBUG: ptr is {}", ptr);
         println!("After locking memory");
-        let phys = mailbox::bus_to_phys(ptr);
 
-        {
-            let mut program = mailbox::map(phys, 64)?;
-            println!("After mapping memory");
-            program[0] = 0x00;
-            program[1] = 0x08;
-            program[2] = 0x5a;
-            program[3] = 0x00;
-            println!("After writing to memory");
-        }
-        println!("After unmapping memory");
+        mailbox::poke(&mbox, ptr, 0x005A0800);
 
+        // {
+        //     let mut program = mailbox::map(mailbox::bus_to_phys(ptr), 64)?;
+        //     println!("After mapping memory");
+        //     program[0] = 0x00;
+        //     program[1] = 0x08;
+        //     program[2] = 0x5a;
+        //     program[3] = 0x00;
+        //     println!("After writing to memory");
+        // }
+        // println!("After unmapping memory");
+
+        let phys = 0x7e207080;
+        println!("REMY DEBUG: phys is {}", phys);
         result = Some(mailbox::execute_code(&mbox, ptr, phys, 0, 0, 0, 0, 0)?);
         println!("After executing code");
 
@@ -41,7 +48,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
     println!("After closing mailbox");
 
-    for _ in 0 .. 1000 {
+    for _ in 0 .. 100 {
         println!("Result is {:?}\n", result);
     }
 
