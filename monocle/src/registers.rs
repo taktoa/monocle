@@ -40,22 +40,86 @@ impl<T> std::ops::Deref for MMIODerefWrapper<T> {
 register_bitfields! {
     u32,
 
+    /// GPIO Function Select 0
+    GPFSEL0 [
+        FSEL0 OFFSET(0) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL1 OFFSET(3) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL2 OFFSET(6) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL3 OFFSET(9) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL4 OFFSET(12) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL5 OFFSET(15) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL6 OFFSET(18) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL7 OFFSET(21) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL8 OFFSET(24) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL9 OFFSET(27) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010]
+    ],
+
     /// GPIO Function Select 1
     GPFSEL1 [
-        /// Pin 15
-        FSEL15 OFFSET(15) NUMBITS(3) [
-            Input = 0b000,
-            Output = 0b001,
-            AltFunc0 = 0b100  // PL011 UART RX
+        FSEL10 OFFSET(0) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL11 OFFSET(3) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL12 OFFSET(6) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL13 OFFSET(9) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL14 OFFSET(12) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL15 OFFSET(15) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL16 OFFSET(18) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL17 OFFSET(21) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL18 OFFSET(24) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL19 OFFSET(27) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010]
+    ],
 
-        ],
+    /// GPIO Function Select 2
+    GPFSEL2 [
+        FSEL20 OFFSET(0) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL21 OFFSET(3) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL22 OFFSET(6) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL23 OFFSET(9) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL24 OFFSET(12) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL25 OFFSET(15) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL26 OFFSET(18) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL27 OFFSET(21) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL28 OFFSET(24) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL29 OFFSET(27) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010]
+    ],
 
-        /// Pin 14
-        FSEL14 OFFSET(12) NUMBITS(3) [
-            Input = 0b000,
-            Output = 0b001,
-            AltFunc0 = 0b100  // PL011 UART TX
-        ]
+    /// GPIO Function Select 3
+    GPFSEL3 [
+        FSEL30 OFFSET(0) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL31 OFFSET(3) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL32 OFFSET(6) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL33 OFFSET(9) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL34 OFFSET(12) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL35 OFFSET(15) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL36 OFFSET(18) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL37 OFFSET(21) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL38 OFFSET(24) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL39 OFFSET(27) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010]
+    ],
+
+    /// GPIO Function Select 4
+    GPFSEL4 [
+        FSEL40 OFFSET(0) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL41 OFFSET(3) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL42 OFFSET(6) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL43 OFFSET(9) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL44 OFFSET(12) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL45 OFFSET(15) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL46 OFFSET(18) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL47 OFFSET(21) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL48 OFFSET(24) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL49 OFFSET(27) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010]
+    ],
+
+    /// GPIO Function Select 5
+    GPFSEL5 [
+        FSEL50 OFFSET(0) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL51 OFFSET(3) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL52 OFFSET(6) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL53 OFFSET(9) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL54 OFFSET(12) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL55 OFFSET(15) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL56 OFFSET(18) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
+        FSEL57 OFFSET(21) NUMBITS(3) [Input = 0b000, Output = 0b001, AltFunc0 = 0b100, AltFunc1 = 0b101, AltFunc2 = 0b110, AltFunc3 = 0b111, AltFunc4 = 0b011, AltFunc5 = 0b010],
     ],
 
     /// GPIO Pin Async. Rising Edge Detect 0
@@ -152,8 +216,12 @@ register_bitfields! {
 register_structs! {
     #[allow(non_snake_case)]
     PinRegisterBlock {
-        (0x00 => _reserved1),
+        (0x00 => GPFSEL0: ReadWrite<u32, GPFSEL0::Register>),
         (0x04 => GPFSEL1: ReadWrite<u32, GPFSEL1::Register>),
+        (0x08 => GPFSEL2: ReadWrite<u32, GPFSEL2::Register>),
+        (0x0c => GPFSEL3: ReadWrite<u32, GPFSEL3::Register>),
+        (0x10 => GPFSEL4: ReadWrite<u32, GPFSEL4::Register>),
+        (0x14 => GPFSEL5: ReadWrite<u32, GPFSEL5::Register>),
         (0x08 => _reserved2),
         (0x7c => GPAREN0: ReadWrite<u32, GPAREN0::Register>),
         (0x80 => GPAREN1: ReadWrite<u32, GPAREN1::Register>),
@@ -182,7 +250,7 @@ pub struct GPIO {
 impl GPIO {
     pub unsafe fn new(mmio_start_addr: usize) -> Self {
         Self {
-            pin_registers: PinRegisters::new(mmio_start_addr),
+            pin_registers: PinRegisters::new(mmio_start_addr + 0x200000),
             ic0_registers: InterruptRegisters::new(mmio_start_addr + 0x2000),
             ic1_registers: InterruptRegisters::new(mmio_start_addr + 0x2800),
         }
@@ -198,5 +266,93 @@ impl GPIO {
 
     pub fn get_ic1_vaddr(&self) -> u32 {
         self.ic1_registers.VADDR.read(VADDR::VADDR)
+    }
+
+    pub fn get_fsel0(&self) -> [u32; 10] {
+        [
+            self.pin_registers.GPFSEL0.read(GPFSEL0::FSEL0),
+            self.pin_registers.GPFSEL0.read(GPFSEL0::FSEL1),
+            self.pin_registers.GPFSEL0.read(GPFSEL0::FSEL2),
+            self.pin_registers.GPFSEL0.read(GPFSEL0::FSEL3),
+            self.pin_registers.GPFSEL0.read(GPFSEL0::FSEL4),
+            self.pin_registers.GPFSEL0.read(GPFSEL0::FSEL5),
+            self.pin_registers.GPFSEL0.read(GPFSEL0::FSEL6),
+            self.pin_registers.GPFSEL0.read(GPFSEL0::FSEL7),
+            self.pin_registers.GPFSEL0.read(GPFSEL0::FSEL8),
+            self.pin_registers.GPFSEL0.read(GPFSEL0::FSEL9)
+       ]
+    }
+
+    pub fn get_fsel1(&self) -> [u32; 10] {
+        [
+            self.pin_registers.GPFSEL1.read(GPFSEL1::FSEL10),
+            self.pin_registers.GPFSEL1.read(GPFSEL1::FSEL11),
+            self.pin_registers.GPFSEL1.read(GPFSEL1::FSEL12),
+            self.pin_registers.GPFSEL1.read(GPFSEL1::FSEL13),
+            self.pin_registers.GPFSEL1.read(GPFSEL1::FSEL14),
+            self.pin_registers.GPFSEL1.read(GPFSEL1::FSEL15),
+            self.pin_registers.GPFSEL1.read(GPFSEL1::FSEL16),
+            self.pin_registers.GPFSEL1.read(GPFSEL1::FSEL17),
+            self.pin_registers.GPFSEL1.read(GPFSEL1::FSEL18),
+            self.pin_registers.GPFSEL1.read(GPFSEL1::FSEL19)
+       ]
+    }
+
+    pub fn get_fsel2(&self) -> [u32; 10] {
+        [
+            self.pin_registers.GPFSEL2.read(GPFSEL2::FSEL20),
+            self.pin_registers.GPFSEL2.read(GPFSEL2::FSEL21),
+            self.pin_registers.GPFSEL2.read(GPFSEL2::FSEL22),
+            self.pin_registers.GPFSEL2.read(GPFSEL2::FSEL23),
+            self.pin_registers.GPFSEL2.read(GPFSEL2::FSEL24),
+            self.pin_registers.GPFSEL2.read(GPFSEL2::FSEL25),
+            self.pin_registers.GPFSEL2.read(GPFSEL2::FSEL26),
+            self.pin_registers.GPFSEL2.read(GPFSEL2::FSEL27),
+            self.pin_registers.GPFSEL2.read(GPFSEL2::FSEL28),
+            self.pin_registers.GPFSEL2.read(GPFSEL2::FSEL29)
+       ]
+    }
+
+    pub fn get_fsel3(&self) -> [u32; 10] {
+        [
+            self.pin_registers.GPFSEL3.read(GPFSEL3::FSEL30),
+            self.pin_registers.GPFSEL3.read(GPFSEL3::FSEL31),
+            self.pin_registers.GPFSEL3.read(GPFSEL3::FSEL32),
+            self.pin_registers.GPFSEL3.read(GPFSEL3::FSEL33),
+            self.pin_registers.GPFSEL3.read(GPFSEL3::FSEL34),
+            self.pin_registers.GPFSEL3.read(GPFSEL3::FSEL35),
+            self.pin_registers.GPFSEL3.read(GPFSEL3::FSEL36),
+            self.pin_registers.GPFSEL3.read(GPFSEL3::FSEL37),
+            self.pin_registers.GPFSEL3.read(GPFSEL3::FSEL38),
+            self.pin_registers.GPFSEL3.read(GPFSEL3::FSEL39)
+       ]
+    }
+
+    pub fn get_fsel4(&self) -> [u32; 10] {
+        [
+            self.pin_registers.GPFSEL4.read(GPFSEL4::FSEL40),
+            self.pin_registers.GPFSEL4.read(GPFSEL4::FSEL41),
+            self.pin_registers.GPFSEL4.read(GPFSEL4::FSEL42),
+            self.pin_registers.GPFSEL4.read(GPFSEL4::FSEL43),
+            self.pin_registers.GPFSEL4.read(GPFSEL4::FSEL44),
+            self.pin_registers.GPFSEL4.read(GPFSEL4::FSEL45),
+            self.pin_registers.GPFSEL4.read(GPFSEL4::FSEL46),
+            self.pin_registers.GPFSEL4.read(GPFSEL4::FSEL47),
+            self.pin_registers.GPFSEL4.read(GPFSEL4::FSEL48),
+            self.pin_registers.GPFSEL4.read(GPFSEL4::FSEL49)
+       ]
+    }
+
+    pub fn get_fsel5(&self) -> [u32; 8] {
+        [
+            self.pin_registers.GPFSEL5.read(GPFSEL5::FSEL50),
+            self.pin_registers.GPFSEL5.read(GPFSEL5::FSEL51),
+            self.pin_registers.GPFSEL5.read(GPFSEL5::FSEL52),
+            self.pin_registers.GPFSEL5.read(GPFSEL5::FSEL53),
+            self.pin_registers.GPFSEL5.read(GPFSEL5::FSEL54),
+            self.pin_registers.GPFSEL5.read(GPFSEL5::FSEL55),
+            self.pin_registers.GPFSEL5.read(GPFSEL5::FSEL56),
+            self.pin_registers.GPFSEL5.read(GPFSEL5::FSEL57)
+       ]
     }
 }

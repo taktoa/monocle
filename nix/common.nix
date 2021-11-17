@@ -296,7 +296,6 @@ self: super: {
       mount -t devpts devpts /dev/pts
       mount -t debugfs debugfs /sys/kernel/debug
 
-      ls -lh /proc/self/fd > /dev/tty1
       exec > /dev/tty1 2>&1 < /dev/tty1
 
       depmod
