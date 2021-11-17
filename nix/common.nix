@@ -162,6 +162,7 @@ self: super: {
     paths = [
       self.shrunken_busybox
       self.boottime
+      #self.rpi-tools.utils
       #self.gdb
       self.shrunkenPackages
     ] ++ self.extra_utils;
@@ -169,12 +170,12 @@ self: super: {
   libnl = super.libnl.override { pythonSupport = false; };
   shrunkenPackages = self.runCommandCC "shrunken-packages" { nativeBuildInputs = [ nativePkgs.nukeReferences ]; } ''
     mkdir -p $out/{bin,sbin,lib}
-    cp ${self.wpa_supplicant}/bin/wpa_supplicant $out/bin
-    cp ${self.avahi}/bin/avahi-daemon $out/bin
+    #cp {self.wpa_supplicant}/bin/wpa_supplicant $out/bin
+    #cp {self.avahi}/bin/avahi-daemon $out/bin
     cp ${self.strace}/bin/strace $out/bin
     cp ${self.openssh}/bin/sshd $out/bin
     #cp {self.iproute}/bin/ip $out/bin
-    cp ${self.dropbear}/bin/dropbear $out/bin/
+    #cp {self.dropbear}/bin/dropbear $out/bin/
     cp ${self.glibcCross.bin}/bin/nscd $out/bin
     #cp {self.smi-test}/bin/smi-test $out/bin
     cp -v ${/home/remy/Downloads/vcdbg} $out/sbin/vcdbg
@@ -196,7 +197,7 @@ self: super: {
     cp ${self.libcap.lib}/lib/libcap.so.2 $out/lib
     cp ${self.libgcrypt.out}/lib/libgcrypt.so.20 $out/lib
     cp ${self.libgpgerror}/lib/libgpg-error.so.0 $out/lib
-    cp ${self.avahi}/lib/lib{avahi-common.so.3,avahi-core.so.7} $out/lib
+    #cp {self.avahi}/lib/lib{avahi-common.so.3,avahi-core.so.7} $out/lib
     cp ${self.libdaemon}/lib/libdaemon.so.0 $out/lib
     cp ${self.expat}/lib/libexpat.so.1 $out/lib
     cp ${self.libunwind}/lib/lib{unwind-ptrace.so.0,unwind-arm.so.8,unwind.so.8} $out/lib
