@@ -12,7 +12,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         println!("Beginning of program");
         let mbox = mailbox::open()?;
         println!("After opening mailbox");
-        let handle = mailbox::mem_alloc(&mbox, 64, 8, 4)?;
+        let handle = mailbox::mem_alloc(
+            &mbox, 64, 8,
+            mailbox::MEM_FLAG_DIRECT | mailbox::MEM_FLAG_HINT_PERMALOCK)?;
         println!("After allocating memory");
         let ptr = mailbox::mem_lock(&mbox, handle)?;
         println!("After locking memory");

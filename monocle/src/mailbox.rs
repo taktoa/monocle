@@ -8,20 +8,32 @@ use byteorder::{WriteBytesExt, LittleEndian};
 // #define IOCTL_MBOX_PROPERTY _IOWR(MAJOR_NUM, 0, char *)
 // #define DEVICE_FILE_NAME "/dev/vcio"
 
-nix::ioctl_readwrite_buf!(mbox_property_ioctl, 100, 0, u8);
+nix::ioctl_readwrite!(mbox_property_ioctl, 100, 0, u32);
 
-pub fn mbox_property(file: &std::fs::File, buffer: &mut [u8]) -> nix::Result<i32> {
+pub fn mbox_property(file: &std::fs::File, buffer: &mut [u32]) -> nix::Result<i32> {
     unsafe {
-        mbox_property_ioctl(file.as_raw_fd(), buffer)
+        mbox_property_ioctl(file.as_raw_fd(), buffer.as_mut_ptr())
     }
 }
 
-fn u32_slice_to_u8_slice(slice: &mut [u32], len: u32) -> &mut [u8] {
-    unsafe {
-        std::mem::transmute(slice.split_at_mut(len as usize).0)
-    }
+fn slice_to_size(slice: &mut [u32], len: u32) -> &mut [u32] {
+    slice.split_at_mut(len as usize).0
 }
 
+// fn slice_to_size(slice: &mut [u32], len: u32) -> &mut [u8] {
+//     unsafe {
+//         std::mem::transmute(slice.split_at_mut(len as usize).0)
+//     }
+// }
+
+pub const MEM_FLAG_DISCARDABLE: u32      = 1 << 0; // can be resized to 0 at any time. Use for cached data
+pub const MEM_FLAG_NORMAL: u32           = 0 << 2; // normal allocating alias. Don't use from ARM
+pub const MEM_FLAG_DIRECT: u32           = 1 << 2; // 0xC alias uncached
+pub const MEM_FLAG_COHERENT: u32         = 2 << 2; // 0x8 alias. Non-allocating in L2 but coherent
+pub const MEM_FLAG_L1_NONALLOCATING: u32 = MEM_FLAG_DIRECT | MEM_FLAG_COHERENT; // Allocating in L2
+pub const MEM_FLAG_ZERO: u32             = 1 << 4; // initialise buffer to all zeros
+pub const MEM_FLAG_NO_INIT: u32          = 1 << 5; // don't initialise (default is initialise to all ones
+pub const MEM_FLAG_HINT_PERMALOCK: u32   = 1 << 6; // Likely to be locked for long periods of time.
 
 pub fn mem_alloc(file: &std::fs::File, num_bytes: u32, align: u32, flags: u32) -> nix::Result<u32> {
     let mut p: [u32; 32] = [0; 32];
@@ -37,10 +49,7 @@ pub fn mem_alloc(file: &std::fs::File, num_bytes: u32, align: u32, flags: u32) -
     p[7] = flags;      // MEM_FLAG_L1_NONALLOCATING
     p[8] = 0x00000000; // end tag
 
-    mbox_property(file, u32_slice_to_u8_slice(&mut p, size))?;
-
-    // Check that we successfully allocated the given number of bytes
-    assert_eq!(num_bytes, p[6]);
+    mbox_property(file, slice_to_size(&mut p, size))?;
 
     Ok(p[5])
 }
@@ -57,7 +66,7 @@ pub fn mem_free(file: &std::fs::File, handle: u32) -> nix::Result<u32> {
     p[5] = handle;     // handle
     p[6] = 0x00000000; // end tag
 
-    mbox_property(file, u32_slice_to_u8_slice(&mut p, size))?;
+    mbox_property(file, slice_to_size(&mut p, size))?;
 
     Ok(p[5])
 }
@@ -74,7 +83,7 @@ pub fn mem_lock(file: &std::fs::File, handle: u32) -> nix::Result<u32> {
     p[5] = handle;     // handle
     p[6] = 0x00000000; // end tag
 
-    mbox_property(file, u32_slice_to_u8_slice(&mut p, size))?;
+    mbox_property(file, slice_to_size(&mut p, size))?;
     Ok(p[5])
 }
 
@@ -90,7 +99,7 @@ pub fn mem_unlock(file: &std::fs::File, handle: u32) -> nix::Result<u32> {
     p[5] = handle;     // handle
     p[6] = 0x00000000; // end tag
 
-    mbox_property(file, u32_slice_to_u8_slice(&mut p, size))?;
+    mbox_property(file, slice_to_size(&mut p, size))?;
     Ok(p[5])
 }
 
@@ -120,7 +129,7 @@ pub fn execute_code(
     p[10] = r5;         // r5
     p[11] = 0x00000000; // end tag
 
-    mbox_property(file, u32_slice_to_u8_slice(&mut p, size))?;
+    mbox_property(file, slice_to_size(&mut p, size))?;
     Ok(p[5])
 }
 
@@ -136,7 +145,7 @@ pub fn qpu_enable(file: &std::fs::File, enable: u32) -> nix::Result<u32> {
     p[5] = enable;     // handle
     p[6] = 0x00000000; // end tag
 
-    mbox_property(file, u32_slice_to_u8_slice(&mut p, size))?;
+    mbox_property(file, slice_to_size(&mut p, size))?;
     Ok(p[5])
 }
 
@@ -161,7 +170,7 @@ pub fn execute_qpu(
     p[8] = timeout;    // timeout in milliseconds
     p[9] = 0x00000000; // end tag
 
-    mbox_property(file, u32_slice_to_u8_slice(&mut p, size))?;
+    mbox_property(file, slice_to_size(&mut p, size))?;
     Ok(p[5])
 }
 

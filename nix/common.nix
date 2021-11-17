@@ -161,7 +161,7 @@ self: super: {
     name = "bin";
     paths = [
       self.shrunken_busybox
-      #self.boottime
+      self.boottime
       #self.gdb
       self.shrunkenPackages
     ] ++ self.extra_utils;
