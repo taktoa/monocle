@@ -4,8 +4,12 @@ use std::collections::BTreeSet;
 use memmap::MmapOptions;
 
 pub mod mailbox;
-pub mod registers;
-pub mod pantilt;
+//pub mod registers;
+//pub mod pantilt;
+
+//pub fn print_peek(file: &std::fs::File, addr: u32) {
+//    println!("peek({:#x}) == {:#x}", addr, mailbox::peek(file, addr).unwrap());
+//}
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut argument_set = BTreeSet::new();
@@ -25,33 +29,30 @@ fn main() -> Result<(), Box<dyn Error>> {
             flags = flags | mailbox::MEM_FLAG_HINT_PERMALOCK;
         }
         let handle = mailbox::mem_alloc(
-            &mbox, 64, 8, flags)?;
+            &mbox, 64, 4096, flags)?;
         println!("REMY DEBUG: handle is {}", handle);
         println!("After allocating memory");
         let ptr = mailbox::mem_lock(&mbox, handle)?;
-        println!("REMY DEBUG: ptr is {}", ptr);
+        println!("REMY DEBUG: ptr is {:#x}", ptr);
         println!("After locking memory");
 
-        if argument_set.contains("poke") {
-            mailbox::poke(&mbox, ptr, 0x005A0800);
-            println!("After poking memory")
-        } else {
-            {
-                let mut program = mailbox::map(mailbox::bus_to_phys(ptr), 64)?;
-                println!("After mapping memory");
-                program[0] = 0x00;
-                program[1] = 0x08;
-                program[2] = 0x5a;
-                program[3] = 0x00;
-                println!("After writing to memory");
-            }
-            println!("After unmapping memory");
+        if argument_set.contains("mmap_poke") {
+            let mut program = mailbox::map(mailbox::bus_to_phys(ptr), 64)?;
+            println!("After mapping memory");
+            program[0] = 0x00;
+            program[1] = 0x08;
+            program[2] = 0x5a;
+            program[3] = 0x00;
+            println!("After writing to memory");
         }
+        println!("After unmapping memory");
 
-        let phys = 0x7e200000;
-        println!("REMY DEBUG: phys is {}", phys);
-        result = Some(mailbox::execute_code(&mbox, ptr, phys, 0, 0, 0, 0, 0)?);
-        println!("After executing code");
+        let phys = 0x7e200004;
+        println!("REMY DEBUG: phys is {:#x}", phys);
+        if argument_set.contains("execute") {
+            result = Some(mailbox::execute_code(&mbox, ptr, phys, 0, 0, 0, 0, 0)?);
+            println!("After executing code");
+        }
 
         mailbox::mem_unlock(&mbox, handle)?;
         println!("After unlocking memory");
@@ -61,7 +62,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("After closing mailbox");
 
     for _ in 0 .. 100 {
-        println!("Result is {:?}\n", result);
+        //println!("Result is {:?}\n", result);
     }
 
     // pantilt::main()?;

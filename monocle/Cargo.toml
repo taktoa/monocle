@@ -1,3 +1,4 @@
+cargo-features = ["edition2021"]
 [package]
 name = "monocle"
 version = "0.1.0"
@@ -6,14 +7,16 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-approx = "*"
-chrono = "*"
-chrono-tz = "*"
+#approx = "*"
+#chrono = "*"
+#chrono-tz = "*"
 memmap = "*"
 nix = "*"
-tock-registers = "*"
-byteorder = "*"
-serial = "*"
-liblinear = "*"
-scan_fmt = "*"
+#tock-registers = "*"
+#byteorder = "*"
+#serial = "*"
+#liblinear = "*"
+#scan_fmt = "*"
 #libsvm = "*"
+libc = "*"
+

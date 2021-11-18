@@ -2,7 +2,7 @@ use std::fs::OpenOptions;
 use std::error::Error;
 use std::os::unix::io::AsRawFd;
 use memmap::MmapOptions;
-use byteorder::{WriteBytesExt, LittleEndian};
+//use byteorder::{WriteBytesExt, LittleEndian};
 
 // #define MAJOR_NUM 100
 // #define IOCTL_MBOX_PROPERTY _IOWR(MAJOR_NUM, 0, char *)
@@ -11,9 +11,21 @@ use byteorder::{WriteBytesExt, LittleEndian};
 nix::ioctl_readwrite!(mbox_property_ioctl, 100, 0, u32);
 
 pub fn mbox_property(file: &std::fs::File, buffer: &mut [u32]) -> nix::Result<i32> {
+    println!("mbox_prop: {:#x}", buffer.as_mut_ptr() as usize);
+
+    let mut orig_buffer = Vec::new();
+    orig_buffer.resize(buffer.len(), 0);
+    orig_buffer.copy_from_slice(buffer);
+
     unsafe {
-        mbox_property_ioctl(file.as_raw_fd(), buffer.as_mut_ptr())
+        let mut p = buffer.as_mut_ptr();
+        libc::ioctl(file.as_raw_fd(), 0xc0086400, p);
+        //mbox_property_ioctl(file.as_raw_fd(), p)
     }
+    for i in 0..(buffer[0]/4) {
+        println!("p[{}] = {:#x} -> {:#x}", i, orig_buffer[i as usize], buffer[i as usize]);
+    }
+    Ok(0)
 }
 
 fn slice_to_size(slice: &mut [u32], len: u32) -> &mut [u32] {
@@ -130,6 +142,8 @@ pub fn execute_code(
     p[11] = r5;         // r5
     p[12] = 0x00000000; // end tag
 
+    println!("execute {:#x}({:#x},{:#x},{:#x},{:#x},{:#x},{:#x})", code, r0, r1, r2, r3, r4, r5);
+
     mbox_property(file, slice_to_size(&mut p, size))?;
     Ok(p[5])
 }
@@ -175,6 +189,7 @@ pub fn execute_qpu(
     Ok(p[5])
 }
 
+/*
 pub fn poke(file: &std::fs::File, addr: u32, value: u32) -> nix::Result<()> {
     let mut p: [u32; 32] = [0; 32];
 
@@ -193,6 +208,27 @@ pub fn poke(file: &std::fs::File, addr: u32, value: u32) -> nix::Result<()> {
     assert!(p[6] != 1);
     Ok(())
 }
+
+pub fn peek(file: &std::fs::File, addr: u32) -> nix::Result<u32> {
+    let mut p: [u32; 32] = [0; 32];
+
+    let size = 10;
+    p[0] = size * 4;   // message size
+    p[1] = 0x00000000; // process request
+    p[2] = 0x00030045; // tag ID
+    p[3] = 4*4;        // size of buffer
+    p[4] = 0x0;        // size of data
+    p[5] = addr;       // base-address
+    p[6] = 2;          // length
+    p[7] = 0xdeadbeef; // value to write
+    p[8] = 0xdeadbeef; // value to write
+    p[9] = 0x00000000; // end tag
+
+    mbox_property(file, slice_to_size(&mut p, size))?;
+    assert!(p[6] != 1);
+    Ok(p[7])
+}
+*/
 
 pub fn open() -> Result<std::fs::File, Box<dyn Error>> {
     let vcio = OpenOptions::new().read(true).write(true).open("/dev/vcio")?;
