@@ -239,6 +239,8 @@ pub fn map(mut base: u32, mut size: u32) -> std::io::Result<memmap::MmapMut> {
     let offset = base % (4 * 1024);
     base -= offset;
     size += offset;
+    assert!(offset == 0);
+
     let mem = OpenOptions::new().read(true).write(true).open("/dev/mem")?;
     unsafe {
         MmapOptions::new().offset(base as u64).len(size as usize)
