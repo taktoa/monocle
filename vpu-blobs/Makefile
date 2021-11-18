@@ -10,3 +10,4 @@ install: vpu-blobs.bin vpu-blobs.elf
 	mkdir -pv ${out}
 	cp -v $^ ${out}/
 	${OBJDUMP} -t vpu-blobs.elf > ${out}/vpu-blobs.sym
+	${OBJDUMP} -d vpu-blobs.elf > ${out}/vpu-blobs.lst
