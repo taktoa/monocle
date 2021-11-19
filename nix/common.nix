@@ -365,8 +365,8 @@ self: super: {
   '';
   monocle = self.callPackage ../monocle {
     rustPlatform = self.makeRustPlatform {
-      cargo = self.buildPackages.latest.rustChannels.nightly.rust;
-      rustc = self.buildPackages.latest.rustChannels.nightly.rust;
+      cargo = (self.buildPackages.rustChannelOf { date = "2021-11-15"; channel = "nightly"; }).rust;
+      rustc = (self.buildPackages.rustChannelOf { date = "2021-11-15"; channel = "nightly"; }).rust;
     };
   };
   extra_utils = [ self.monocle ];
