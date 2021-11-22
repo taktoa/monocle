@@ -1,22 +1,91 @@
-use std::error::Error;
 use std::io::{Read, Write};
 use scan_fmt::{scan_fmt, parse::ScanError};
 use serial;
 use chrono;
+use rand;
 
 type RightAscension = f64;
 type Declination = f64;
 type Azimuth = f64;
 type Altitude = f64;
 
+pub struct Version {
+    major: u8,
+    minor: u8,
+}
+
+pub enum Device {
+    AzimuthMotor,
+    AltitudeMotor,
+    GPSUnit,
+    RealTimeClock,
+}
+
+pub enum Model {
+    GPSSeries,
+    ISeries,
+    ISeriesSE,
+    CGE,
+    AdvancedGT,
+    SLT,
+    CPC,
+    GT,
+    SE45,
+    SE68,
+}
+
+impl Model {
+    pub fn from_char(c: char) -> Option<Self> {
+        match c as u8 {
+            1 => Some(Model::GPSSeries),
+            3 => Some(Model::ISeries),
+            4 => Some(Model::ISeriesSE),
+            5 => Some(Model::CGE),
+            6 => Some(Model::AdvancedGT),
+            7 => Some(Model::SLT),
+            9 => Some(Model::CPC),
+            10 => Some(Model::GT),
+            11 => Some(Model::SE45),
+            12 => Some(Model::SE68),
+            _ => None,
+        }
+    }
+}
+
 pub struct Connection {
     port: serial::SystemPort,
-    // version: Version,
-    // tracking_mode: bool,
+    version: Version,
+    tracking: bool,
+    aligned: bool,
+}
+
+pub enum Error {
+    EchoFailure,
+    Scan(ScanError),
+    Serial(serial::Error),
+    IO(std::io::Error),
+}
+
+impl From<ScanError> for Error {
+    fn from(e: ScanError) -> Error {
+        Error::Scan(e)
+    }
+}
+
+impl From<serial::Error> for Error {
+    fn from(e: serial::Error) -> Error {
+        Error::Serial(e)
+    }
+}
+
+impl From<std::io::Error> for Error {
+    fn from(e: std::io::Error) -> Error {
+        Error::IO(e)
+    }
 }
 
 impl Connection {
-    pub fn new() -> serial::Result<Connection> {
+    pub fn new() -> Result<Connection, Error> {
         use serial::core::SerialPort;
         let mut port = serial::open("/dev/ttyUSB0")?;
         let settings = serial::PortSettings {
@@ -27,8 +96,28 @@ impl Connection {
             flow_control: serial::FlowControl::FlowNone,
         };
         port.configure(&settings)?;
-        let mut result = Connection { port };
+        port.set_timeout(std::time::Duration::from_millis(3500))?;
+        let mut result = Connection {
+            port,
+            version: Version { major: 0, minor: 0 },
+            aligned: false,
+            tracking: false,
+        };
 
+        // Check echo
+        result.echo(rand::random::<u8>())?;
+
+        // Get version
+        {
+            let response = self.send("V", 2)?;
+            let (major, minor) = (
+                response.bytes().nth(0).unwrap(),
+                response.bytes().nth(1).unwrap(),
+            );
+            result.version = Version { major, minor };
+        }
+
+        // Set the telescope's RTC
         {
             use chrono::{Timelike, Datelike};
             let local: chrono::DateTime<chrono::Local> = chrono::Local::now();
@@ -43,25 +132,62 @@ impl Connection {
             let w = (if tz < 0 { 256 + tz } else { tz }) as u8;
             let x = 0;
             let response = result.send(&format!("H{}{}{}{}{}{}{}{}",
-                                                q, r, s, t, u, v, w, x)).unwrap();
-            // FIXME: no unwrap ^^^
+                                                q, r, s, t, u, v, w, x), 0)?;
             assert!(response.is_empty());
+        }
+
+        // Get whether we're in tracking mode
+        {
+            assert!((result.version.major > 2)
+                    || ((result.version.major == 2) &&
+                        (result.version.minor >= 3)));
+
+       }
+
+        // Get whether we're aligned
+        {
         }
 
         Ok(result)
     }
 
-    pub fn send(&mut self, message: &str) -> Result<String, ()> {
+    pub fn send(
+        &mut self, message: &str, response_size: usize
+    ) -> Result<String, Error> {
+        use std::io::{Read, Write};
+        self.port.write_all(message.as_bytes())?;
+        self.port.flush()?;
+        let mut buf = Vec::<u8>::new();
+        buf.resize(response_size + 1, 0);
+        self.port.read_exact(&mut buf)?;
+        if *(buf.last().unwrap()) != b'#' {
+            // self.read_exact()
+        }
         Ok("".to_string())
     }
 
-    pub fn goto_ra_dec(&mut self, ra: RightAscension, dec: Declination) -> Result<(), ()> {
+    pub fn echo(&mut self, byte: u8) -> Result<(), Error> {
+        let result = self.send(&format!("K{}", byte as char), 1)?;
+        if result != format!("{}", byte as char) {
+            return Err(Error::EchoFailure);
+        }
+        Ok(())
+    }
+
+    pub fn version(&mut self) -> Result<Version, Error> {
+    }
+
+    pub fn goto_ra_dec(
+        &mut self, ra: RightAscension, dec: Declination
+    ) -> Result<(), Error> {
         // Check that we are aligned
         // Use precise if version supports it, imprecise otherwise
         Ok(())
     }
 
-    pub fn goto_az_alt(&mut self, ra: RightAscension, dec: Declination) -> Result<(), ()> {
+    pub fn goto_az_alt(
+        &mut self, az: Azimuth, alt: Altitude
+    ) -> Result<(), Error> {
         // Use precise if version supports it, imprecise otherwise
         Ok(())
     }
@@ -120,14 +246,14 @@ fn imprecise_nexstar_to_dd(string: &str) -> Result<(f64, f64), ScanError> {
     Ok((x_degrees, y_degrees))
 }
 
-pub fn main() -> Result<(), Box<dyn Error>> {
-    let mut conn = Connection::new()?;
-    conn.port.write("B12AB,4000".as_bytes())?;
-    // let mut buf: Vec<u8> = (0 .. 255).map(|_| 0).collect();
-    // port.read(&mut buf);
-    // println!("DEBUG: {:?}", std::str::from_utf8(&buf));
-    Ok(())
-}
+// pub fn main() -> Result<(), Box<dyn Error>> {
+//     let mut conn = Connection::new()?;
+//     conn.port.write("B12AB,4000".as_bytes())?;
+//     // let mut buf: Vec<u8> = (0 .. 255).map(|_| 0).collect();
+//     // port.read(&mut buf);
+//     // println!("DEBUG: {:?}", std::str::from_utf8(&buf));
+//     Ok(())
+// }
 
 #[cfg(test)]
 mod tests {

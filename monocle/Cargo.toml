@@ -1,4 +1,3 @@
-cargo-features = ["edition2021"]
 [package]
 name = "monocle"
 version = "0.1.0"
@@ -7,16 +6,21 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-#approx = "*"
-#chrono = "*"
-#chrono-tz = "*"
+approx = "*"
+chrono = "*"
+chrono-tz = "*"
 memmap = "*"
 nix = "*"
 #tock-registers = "*"
 #byteorder = "*"
-#serial = "*"
+serial = "*"
 #liblinear = "*"
-#scan_fmt = "*"
+scan_fmt = "*"
 #libsvm = "*"
+linfa = { version = "*", features = ["intel-mkl-system"] }
+linfa-elasticnet = "*"
+#linfa-datasets = { version = "*", features = ["diabetes"] }
+ndarray = "*"
+ndarray-linalg = "*"
 libc = "*"
-
+rand = "*"

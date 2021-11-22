@@ -1,6 +1,7 @@
 { lib, stdenv
 , fetchFromGitHub
 , rustPlatform
+, pkgs
 }:
 
 rustPlatform.buildRustPackage rec {
@@ -11,7 +12,8 @@ rustPlatform.buildRustPackage rec {
 
   cargoSha256 = "sha256-mquZitH8iI+XnbRnPWYIaGu5WHqXBD5APCDHLjdCiRE=";
 
-  nativeBuildInputs = [];
+  nativeBuildInputs = [pkgs.pkgconfig];
+  buildInputs = with pkgs; [openblas mkl openssl];
 
   meta = with lib; {
     description = "Software for a single pixel camera";

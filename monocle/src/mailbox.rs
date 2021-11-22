@@ -18,7 +18,7 @@ pub fn mbox_property(file: &std::fs::File, buffer: &mut [u32]) -> nix::Result<i3
     orig_buffer.copy_from_slice(buffer);
 
     unsafe {
-        let mut p = buffer.as_mut_ptr();
+        let p = buffer.as_mut_ptr();
         libc::ioctl(file.as_raw_fd(), 0xc0086400, p);
         //mbox_property_ioctl(file.as_raw_fd(), p)
     }
