@@ -3,17 +3,15 @@ use scan_fmt::{scan_fmt, parse::ScanError};
 use serial;
 use chrono;
 use rand;
+use crate::quantity::{Azimuth, Altitude, RightAscension, Declination};
 
-type RightAscension = f64;
-type Declination = f64;
-type Azimuth = f64;
-type Altitude = f64;
-
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Version {
     major: u8,
     minor: u8,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Device {
     AzimuthMotor,
     AltitudeMotor,
@@ -21,6 +19,7 @@ pub enum Device {
     RealTimeClock,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Model {
     GPSSeries,
     ISeries,
@@ -52,18 +51,52 @@ impl Model {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum TrackingMode {
+    Off,
+    AltAz,
+    EqNorth,
+    EqSouth,
+}
+
+impl TrackingMode {
+    pub fn to_char(&self) -> char {
+        match *self {
+            TrackingMode::Off => 0 as char,
+            TrackingMode::AltAz => 1 as char,
+            TrackingMode::EqNorth => 2 as char,
+            TrackingMode::EqSouth => 3 as char,
+        }
+    }
+}
+
 pub struct Connection {
     port: serial::SystemPort,
     version: Version,
-    tracking: bool,
+    tracking: TrackingMode,
     aligned: bool,
 }
 
 pub enum Error {
+    /// The telescope needs to be aligned.
+    NeedsAlignment,
+    /// Not only was the response invalid, but it didn't even contain a `#` at
+    /// the `n + 2` byte where `n` is the expected message body length.
+    GarbageResponse,
+    /// We received a response with body length `n + 1` where `n` is the
+    /// expected message body length.
+    InvalidResponse,
     EchoFailure,
+    UTF8(std::string::FromUtf8Error),
     Scan(ScanError),
     Serial(serial::Error),
     IO(std::io::Error),
+}
+
+impl From<std::string::FromUtf8Error> for Error {
+    fn from(e: std::string::FromUtf8Error) -> Error {
+        Error::UTF8(e)
+    }
 }
 
 impl From<ScanError> for Error {
@@ -100,8 +133,8 @@ impl Connection {
         let mut result = Connection {
             port,
             version: Version { major: 0, minor: 0 },
+            tracking: TrackingMode::Off,
             aligned: false,
-            tracking: false,
         };
 
         // Check echo
@@ -109,7 +142,7 @@ impl Connection {
 
         // Get version
         {
-            let response = self.send("V", 2)?;
+            let response = result.send("V", 2)?;
             let (major, minor) = (
                 response.bytes().nth(0).unwrap(),
                 response.bytes().nth(1).unwrap(),
@@ -141,11 +174,28 @@ impl Connection {
             assert!((result.version.major > 2)
                     || ((result.version.major == 2) &&
                         (result.version.minor >= 3)));
+            let response = result.send("t", 1)?;
+            match response.bytes().nth(0).unwrap() {
+                0 => { result.tracking = TrackingMode::Off; },
+                1 => { result.tracking = TrackingMode::AltAz; },
+                2 => { result.tracking = TrackingMode::EqNorth; },
+                3 => { result.tracking = TrackingMode::EqSouth; },
+                _ => assert!(false),
+            }
 
        }
 
         // Get whether we're aligned
         {
+            assert!((result.version.major > 1)
+                    || ((result.version.major == 1) &&
+                        (result.version.minor >= 2)));
+            let response = result.send("J", 1)?;
+            match response.bytes().nth(0).unwrap() {
+                0 => { result.aligned = false; },
+                1 => { result.aligned = true; },
+                _ => assert!(false),
+            }
         }
 
         Ok(result)
@@ -161,9 +211,15 @@ impl Connection {
         buf.resize(response_size + 1, 0);
         self.port.read_exact(&mut buf)?;
         if *(buf.last().unwrap()) != b'#' {
-            // self.read_exact()
+            let mut extra: [u8; 1] = [0; 1];
+            self.port.read_exact(&mut extra)?;
+            if extra[0] != b'#' {
+                return Err(Error::InvalidResponse);
+            } else {
+                return Err(Error::GarbageResponse);
+            }
         }
-        Ok("".to_string())
+        Ok(String::from_utf8(buf.split_at(response_size).0.to_vec())?)
     }
 
     pub fn echo(&mut self, byte: u8) -> Result<(), Error> {
@@ -174,24 +230,72 @@ impl Connection {
         Ok(())
     }
 
-    pub fn version(&mut self) -> Result<Version, Error> {
+    pub fn version(&mut self) -> Version {
+        self.version.clone()
+    }
+
+    pub fn get_ra_dec(&mut self) -> Result<(RightAscension, Declination), Error> {
+        assert!(self.version >= (Version { major: 1, minor: 2 }));
+        if self.version >= (Version { major: 1, minor: 6 }) {
+            let precise = self.send("e", 0)?;
+            Ok(precise_nexstar_to_dd(&precise)?)
+        } else {
+            let imprecise = self.send("E", 0)?;
+            Ok(imprecise_nexstar_to_dd(&imprecise)?)
+        }
+    }
+
+    pub fn get_az_alt(&mut self) -> Result<(Azimuth, Altitude), Error> {
+        assert!(self.version >= (Version { major: 1, minor: 2 }));
+        if self.version >= (Version { major: 2, minor: 2 }) {
+            let precise = self.send("z", 0)?;
+            Ok(precise_nexstar_to_dd(&precise)?)
+        } else {
+            let imprecise = self.send("Z", 0)?;
+            Ok(imprecise_nexstar_to_dd(&imprecise)?)
+        }
     }
 
     pub fn goto_ra_dec(
         &mut self, ra: RightAscension, dec: Declination
     ) -> Result<(), Error> {
-        // Check that we are aligned
-        // Use precise if version supports it, imprecise otherwise
+        assert!(self.aligned);
+        assert!(self.version >= (Version { major: 1, minor: 2 }));
+        if self.version >= (Version { major: 1, minor: 6 }) {
+            self.send(&format!("r{}", dd_to_precise_nexstar((ra, dec))), 0)?;
+        } else {
+            self.send(&format!("R{}", dd_to_imprecise_nexstar((ra, dec))), 0)?;
+        }
         Ok(())
     }
 
     pub fn goto_az_alt(
         &mut self, az: Azimuth, alt: Altitude
     ) -> Result<(), Error> {
-        // Use precise if version supports it, imprecise otherwise
+        assert!(self.version >= (Version { major: 1, minor: 2 }));
+        if self.version >= (Version { major: 2, minor: 2 }) {
+            self.send(&format!("b{}", dd_to_precise_nexstar((az, alt))), 0)?;
+        } else {
+            self.send(&format!("B{}", dd_to_imprecise_nexstar((az, alt))), 0)?;
+        }
         Ok(())
     }
 
+    pub fn sync(
+        &mut self, ra: RightAscension, dec: Declination
+    ) -> Result<(), Error> {
+        assert!(self.version >= (Version { major: 4, minor: 10 }));
+        self.send(&format!("s{}", dd_to_precise_nexstar((ra, dec))), 0)?;
+        Ok(())
+    }
+
+    pub fn set_tracking(
+        &mut self, tracking_mode: TrackingMode
+    ) -> Result<(), Error> {
+        assert!(self.version >= (Version { major: 1, minor: 6 }));
+        self.send(&format!("T{}", tracking_mode.to_char()), 0)?;
+        Ok(())
+    }
 }
 
 fn dd_to_precise_nexstar((mut x, mut y): (f64, f64)) -> String {

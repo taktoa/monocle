@@ -4,10 +4,11 @@ use drm::Device;
 use drm::control::Device as ControlDevice;
 use drm::control::{self, crtc, framebuffer};
 use drm::control::connector::{Interface, State};
-use gbm::{BufferObjectFlags, Format};
+use drm::control::dumbbuffer::DumbMapping;
+//use gbm::{BufferObjectFlags, Format};
 
-pub const DISPLAY_WIDTH: usize = 1440; // 1440
-pub const DISPLAY_HEIGHT: usize = 2560; // 2560
+pub const DISPLAY_WIDTH: usize = 1920; // 1360; // 1440;
+pub const DISPLAY_HEIGHT: usize = 1080; // 768; // 2560;
 
 struct Card(std::fs::File);
 
@@ -31,19 +32,20 @@ impl Card {
 }
 
 pub fn run(
-    mut render_callback: impl for<'a> FnMut(&mut drm::control::dumbbuffer::DumbMapping<'a>)
+    mut render_callback: impl for<'a> FnMut(&mut DumbMapping<'a>) -> bool
 ) -> Result<(), Box<dyn Error>> {
     let drm = Card::open("/dev/dri/card0");
     // let drm = gbm::Device::new(card)?;
-
     drm.acquire_master_lock()?;
+
     let resource_handles = drm.resource_handles()?;
 
-    let mut chosen_connector = None;
-    let mut chosen_mode = None;
-    'outer: for _ in 0..100000 {
+    let mut chosen_connector: Option<drm::control::connector::Handle> = None;
+    let mut chosen_mode: Option<drm::control::Mode> = None;
+    'outer1: for _ in 0..100000 {
         for connector in resource_handles.connectors() {
             let info = drm.get_connector(connector.clone())?;
+            // println!("DEBUG: {:?}", info);
             if info.interface() == Interface::HDMIA {
                 if info.state() == State::Connected {
                     let sizes: Vec<(u16, u16)> =
@@ -51,7 +53,7 @@ pub fn run(
                     if let Some(mode_index) = sizes.iter().position(|s| s == &(DISPLAY_WIDTH as u16, DISPLAY_HEIGHT as u16)) {
                         chosen_connector = Some(connector.clone());
                         chosen_mode = Some(info.modes()[mode_index]);
-                        break 'outer;
+                        break 'outer1;
                     }
                 }
             }
@@ -60,22 +62,24 @@ pub fn run(
     let chosen_connector = chosen_connector.unwrap();
     let chosen_mode = chosen_mode.unwrap();
 
+    println!("connector = {:?}", drm.get_connector(chosen_connector.clone())?);
+    println!("mode      = {:?}", chosen_mode);
+
     let mut chosen_crtc = None;
-    'outer: for maybe_encoder in drm.get_connector(chosen_connector.clone())?.encoders() {
+    'outer2: for maybe_encoder in drm.get_connector(chosen_connector.clone())?.encoders() {
         if let Some(encoder) = maybe_encoder {
             let encoder_info = drm.get_encoder(encoder.clone())?;
+            println!("DEBUG: {:?}", encoder_info);
             for crtc in resource_handles.filter_crtcs(encoder_info.possible_crtcs()) {
-                if let None = drm.get_crtc(crtc.clone())?.mode() {
-                    chosen_crtc = Some(crtc.clone());
-                    break 'outer;
-                }
+                chosen_crtc = Some(crtc.clone());
+                break 'outer2;
+                // if let None = drm.get_crtc(crtc.clone())?.mode() {
+                // }
             }
         }
     }
     let chosen_crtc = chosen_crtc.unwrap();
 
-    println!("connector = {:?}", drm.get_connector(chosen_connector.clone())?);
-    println!("mode      = {:?}", chosen_mode);
     println!("crtc      = {:?}", drm.get_crtc(chosen_crtc.clone())?);
 
     for prop in drm.get_properties(chosen_crtc.clone())?.as_props_and_values().0 {
@@ -83,15 +87,10 @@ pub fn run(
         let name = info.name().to_str().unwrap();
         println!("crtc property: name = {}, {:?}", name, info);
         if name == "VRR_ENABLED" {
-            drm.set_property(chosen_crtc, prop.clone(),
-                             From::from(drm::control::property::Value::Boolean(false)));
+            drm.set_property(
+                chosen_crtc, prop.clone(),
+                From::from(drm::control::property::Value::Boolean(false)))?;
         }
-    }
-
-    for prop in drm.get_properties(chosen_connector.clone())?.as_props_and_values().0 {
-        let info = drm.get_property(prop.clone())?;
-        let name = info.name().to_str().unwrap();
-        println!("connector property: name = {}, {:?}", name, info);
     }
 
     for prop in drm.get_properties(chosen_connector.clone())?.as_props_and_values().0 {
@@ -115,7 +114,7 @@ pub fn run(
 
     {
         let mut counter: usize = 0;
-        for i in 0 .. DISPLAY_WIDTH {
+        for _ in 0 .. DISPLAY_WIDTH {
             for _ in 0 .. DISPLAY_HEIGHT {
                 bm1.as_mut()[counter + 0] = 0;
                 bm1.as_mut()[counter + 1] = 0;
@@ -130,31 +129,46 @@ pub fn run(
         }
     }
 
-    let mut front_dm: &mut drm::control::dumbbuffer::DumbMapping = &mut bm1;
-    let mut back_dm: &mut drm::control::dumbbuffer::DumbMapping = &mut bm2;
+    let mut front_dm: &mut DumbMapping = &mut bm1;
+    let mut back_dm: &mut DumbMapping = &mut bm2;
     let mut front_buffer: &mut drm::control::framebuffer::Handle = &mut fb1;
     let mut back_buffer: &mut drm::control::framebuffer::Handle = &mut fb2;
     drm.set_crtc(chosen_crtc,
                  Some(*front_buffer), (0, 0),
                  &[chosen_connector],
                  Some(chosen_mode))?;
-    drm.page_flip(chosen_crtc, *front_buffer, &[drm::control::PageFlipFlags::PageFlipEvent], None);
+    drm.page_flip(chosen_crtc,
+                  *front_buffer,
+                  &[drm::control::PageFlipFlags::PageFlipEvent],
+                  None)?;
 
-    loop {
+    println!("Starting libdrm event loop");
+
+    'event_loop: loop {
         for event in drm.receive_events()? {
             match event {
                 drm::control::Event::PageFlip(page_flip) => {
-                    // println!("  Received page flip: frame {:?}, duration {:?}, crtc {:?}",
+                    // println!("Received page flip: frame {:?}, duration {:?}, crtc {:?}",
                     //          page_flip.frame, page_flip.duration, page_flip.crtc);
                     if page_flip.crtc == chosen_crtc {
                         std::mem::swap(&mut front_dm, &mut back_dm);
                         std::mem::swap(&mut front_buffer, &mut back_buffer);
-                        drm.page_flip(chosen_crtc, *front_buffer, &[drm::control::PageFlipFlags::PageFlipEvent], None);
-                        render_callback(back_dm);
+                        drm.page_flip(
+                            chosen_crtc,
+                            *front_buffer,
+                            &[drm::control::PageFlipFlags::PageFlipEvent],
+                            None)?;
+                        if render_callback(back_dm) {
+                            break 'event_loop;
+                        }
                     }
                 },
                 _ => {},
             }
         }
     }
+
+    drm.release_master_lock()?;
+
+    Ok(())
 }

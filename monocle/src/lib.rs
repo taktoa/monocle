@@ -8,16 +8,28 @@ use memmap::MmapOptions;
 
 pub mod mailbox;
 pub mod gpio;
-pub mod lasso;
+pub mod scanline;
+//pub mod lasso;
 //pub mod registers;
 pub mod pantilt;
+pub mod capture;
+pub mod calibrate;
+pub mod server;
+pub mod client;
+pub mod api;
+pub mod lcd;
+pub mod rotation;
+pub mod mask;
+pub mod quantity;
 
 //pub fn print_peek(file: &std::fs::File, addr: u32) {
 //    println!("peek({:#x}) == {:#x}", addr, mailbox::peek(file, addr).unwrap());
 //}
 
 fn main() -> Result<(), Box<dyn Error>> {
-    lasso::main()?;
+    println!("DEBUG");
+    //lasso::main()?;
+
     // let gpio = gpio::GPIO::new()?;
     // for _ in 0 .. 4000 {
     //     if let Some(photons) = gpio.record_window() {

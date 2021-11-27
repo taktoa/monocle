@@ -19,9 +19,7 @@ impl GPIO {
 
     pub fn read_gpio(&self) -> u32 {
         unsafe {
-            let transmuted =
-                std::mem::transmute::<*const u8, *const u32>(
-                    self.mmap.as_ptr());
+            let transmuted = self.mmap.as_ptr() as *const u32;
             *(transmuted.offset(13))
         }
     }

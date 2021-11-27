@@ -8,12 +8,17 @@ rustPlatform.buildRustPackage rec {
   pname = "monocle";
   version = "0.1.0";
 
-  src = lib.cleanSource ./.;
+  src = lib.cleanSourceWith {
+    filter = p: t: !(t == "directory" && baseNameOf p == "target");
+    src = lib.cleanSource ./.;
+  };
 
-  cargoSha256 = "sha256-mquZitH8iI+XnbRnPWYIaGu5WHqXBD5APCDHLjdCiRE=";
+  cargoSha256 = "03214jv5grzbva034fw3wyw7m599cgl3ass7kn8fh3c8l75jwf16";
 
-  nativeBuildInputs = [pkgs.pkgconfig];
-  buildInputs = with pkgs; [openblas mkl openssl];
+  #nativeBuildInputs = [pkgs.pkgconfig];
+  buildInputs = [
+    pkgs.libdrm
+  ]; #with pkgs; [openblas mkl openssl];
 
   meta = with lib; {
     description = "Software for a single pixel camera";

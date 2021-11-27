@@ -13,6 +13,7 @@ self: super: {
     cp -r ${self.sources.firmware}/modules/${kernel} $out/lib/modules/
   '';
   libftdi = null;
+  atftp = super.atftp.override { gcc = null; readline = null; };
   openocd = super.openocd.overrideAttrs (old: {
     src = self.fetchFromGitHub {
       owner = "raspberrypi";
@@ -21,7 +22,10 @@ self: super: {
       fetchSubmodules = true;
       sha256 = "sha256-o7shTToj6K37Xw+Crwif5WwB4GfPYIiMJ/o/9u3xrsE=";
     };
-    nativeBuildInputs = old.nativeBuildInputs ++ [ nativePkgs.autoreconfHook nativePkgs.gcc ];
+    nativeBuildInputs = old.nativeBuildInputs ++ [
+      nativePkgs.autoreconfHook
+      nativePkgs.gcc
+    ];
     #buildInputs = old.buildInputs ++ [ self.tcl ];
     preConfigure = ''
       pwd
@@ -33,7 +37,7 @@ self: super: {
     ];
   });
   shrunken_busybox = self.runCommand "shrunk-busybox" {
-    busybox = self.busybox.override { enableStatic=true; };
+    busybox = self.busybox.override { enableStatic = true; };
     nativeBuildInputs = [ self.buildPackages.nukeReferences ];
   } ''
     mkdir $out
@@ -118,7 +122,18 @@ self: super: {
       negative-time-to-live   services        0
       shared                  services        yes
     '';
-    passAsFile = [ "nsswitch" "passwd" "sshd_config" "nscd" "group" ];
+    services = ''
+      tftp             69/tcp     # Trivial File Transfer
+      tftp             69/udp     # Trivial File Transfer
+    '';
+    protocols = ''
+      tcp              6 TCP            # Transmission Control
+      udp              17 UDP           # User Datagram
+    '';
+
+    passAsFile = [
+      "nsswitch" "passwd" "sshd_config" "nscd" "group" "services" "protocols"
+    ];
     nativeBuildInputs = [ nativePkgs.nukeReferences ];
   } ''
     mkdir -p $out/ssh
@@ -136,6 +151,8 @@ self: super: {
     cp $groupPath group
     cp $sshd_configPath ssh/sshd_config
     cp $nscdPath nscd.conf
+    cp $servicesPath services
+    cp $protocolsPath protocols
   '';
   # 5.4.72-v7l+
   moduleClosureForKernel = kernel: self.makeModulesClosure {
@@ -154,6 +171,8 @@ self: super: {
       "gadgetfs" # for custom userland gadgets
       "usb_f_hid"
       "usb_f_rndis"
+      "vc4"
+      "v3d"
     ] ++ self.extra_modules;
   };
   extra_modules = [];
@@ -173,11 +192,12 @@ self: super: {
     #cp {self.wpa_supplicant}/bin/wpa_supplicant $out/bin
     #cp {self.avahi}/bin/avahi-daemon $out/bin
     cp ${self.strace}/bin/strace $out/bin
-    cp ${self.openssh}/bin/sshd $out/bin
+    #cp {self.openssh}/bin/sshd $out/bin
     #cp {self.iproute}/bin/ip $out/bin
     #cp {self.dropbear}/bin/dropbear $out/bin/
     cp ${self.glibcCross.bin}/bin/nscd $out/bin
     #cp {self.smi-test}/bin/smi-test $out/bin
+    cp ${self.atftp}/bin/atftp $out/bin
     cp -v ${/home/remy/Downloads/vcdbg} $out/sbin/vcdbg
     chmod +x $out/sbin/vcdbg
 
@@ -325,12 +345,14 @@ self: super: {
     cd $out
     ln -s ${self.firmware-with-custom-overlays}/* .
     ln -s ${self.initrd}/initrd initrd
+    ln -s ${self.monocle}/bin/raspi raspi
     ls -lLhs initrd
     cat <<EOF > config.txt
     dtoverlay=dwc2
     dtoverlay=smi
     dtoverlay=smi-dev
     dtoverlay=smi-speed
+    dtoverlay=vc4-fkms-v3d
     dtparam=axiperf
     enable_uart=1
     uart_2ndstage=1
@@ -344,16 +366,6 @@ self: super: {
     EOF
 
     ${self.trimRootDir}
-  '';
-  util = self.runCommand "util" {} ''
-    mkdir $out
-    cd $out
-    ln -sv ${self.rootDir} rootdir
-    ln -sv ${self.closure} closure
-  '';
-  util2 = (import <nixpkgs> {system="aarch64-linux";}).runCommand "util2" {} ''
-    ${self.shrunkenPackages}/bin/strace --help
-    touch $out
   '';
   rootZip = self.runCommand "rootzip" { nativeBuildInputs = [ self.buildPackages.zip ]; } ''
     cd ${self.rootDir}
@@ -369,11 +381,20 @@ self: super: {
       rustc = (self.buildPackages.rustChannelOf { date = "2021-11-15"; channel = "nightly"; }).rust;
     };
   };
-  extra_utils = [ self.monocle ];
+  extra_utils = [
+    #self.atftp
+  ];
   initrd_script = ''
     set -x
-    #printf "Starting monocle 0"
-    #monocle &
-    #printf "After monocle 0"
+    ip link set dev eth0 up
+    ip addr add 192.168.3.2/32 dev eth0
+    ip route add 192.168.3.0/24 dev eth0
+    modprobe vc4
+    #modprobe v3d
+    atftp -g -r "$serial/raspi" -l bin/raspi 192.168.3.1
+    chmod +x bin/raspi
+    printf "Starting monocle"
+    /bin/raspi &
+    printf "After monocle"
   '';
 }
