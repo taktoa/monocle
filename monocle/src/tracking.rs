@@ -275,8 +275,6 @@ impl VulkanEngine {
             panic!("Graphics queue family is not the same as compute queue family");
         }
 
-        // let compute_queue_info: Vec<
-
         let device_queue_create_info = vk::DeviceQueueCreateInfo::builder()
             .queue_family_index(qfi.graphics.unwrap())
             .queue_priorities(&[1.0])
@@ -303,7 +301,37 @@ impl VulkanEngine {
             device.get_device_queue(qfi.graphics.unwrap(), 0)
         };
 
-        let scsd = SwapChainSupportDetails::create(&entry, &instance, chosen_gpu, surface)?;
+        Ok(VulkanEngine {
+            entry,
+            instance,
+            debug_layer,
+            chosen_gpu,
+            device,
+            queue,
+            surface,
+            sdl_context,
+            window,
+            qfi,
+            swapchain: vk::SwapchainKHR::null(),
+            swapchain_images: vec![],
+            swapchain_format: vk::Format::UNDEFINED,
+            swapchain_extent: vk::Extent2D::builder().build(),
+            swapchain_image_views: vec![],
+            render_pass: vk::RenderPass::null(),
+            pipeline_layout: vk::PipelineLayout::null(),
+            pipeline: vk::Pipeline::null(),
+            swapchain_framebuffers: vec![],
+            command_pool: vk::CommandPool::null(),
+            command_buffer: vk::CommandBuffer::null(),
+            image_available_semaphore: vk::Semaphore::null(),
+            render_finished_semaphore: vk::Semaphore::null(),
+            in_flight_fence: vk::Fence::null(),
+        })
+    }
+
+    pub fn populate_swapchain(&mut self) -> VkResult<()> {
+        let scsd = SwapChainSupportDetails::create(
+            &self.entry, &self.instance, self.chosen_gpu, self.surface)?;
 
         if scsd.formats.is_empty() {
             panic!("The available swapchains had no formats");
@@ -322,6 +350,8 @@ impl VulkanEngine {
             }
         }
 
+        self.swapchain_format = chosen_format.format;
+
         println!("Selected swapchain format: {:?}", chosen_format);
 
         let mut chosen_present_mode = vk::PresentModeKHR::FIFO;
@@ -337,7 +367,7 @@ impl VulkanEngine {
             panic!("Swapchain current extent is bad");
         }
 
-        let swap_extent = scsd.capabilities.current_extent;
+        self.swapchain_extent = scsd.capabilities.current_extent;
 
         let mut image_count = scsd.capabilities.min_image_count + 1;
 
@@ -347,16 +377,16 @@ impl VulkanEngine {
             }
         }
 
-        if qfi.graphics != qfi.present {
+        if self.qfi.graphics != self.qfi.present {
             panic!("Presentation queue is not the same as graphics queue");
         }
 
         let swapchain_create_info = vk::SwapchainCreateInfoKHR::builder()
-            .surface(surface)
+            .surface(self.surface)
             .min_image_count(image_count)
             .image_format(chosen_format.format)
             .image_color_space(chosen_format.color_space)
-            .image_extent(swap_extent)
+            .image_extent(self.swapchain_extent)
             .image_array_layers(1)
             .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
             .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
@@ -367,25 +397,22 @@ impl VulkanEngine {
             .old_swapchain(vk::SwapchainKHR::null());
 
         let swapchain_inst =
-            ash::extensions::khr::Swapchain::new(&instance, &device);
+            ash::extensions::khr::Swapchain::new(&self.instance, &self.device);
 
-        let swapchain = unsafe {
+        self.swapchain = unsafe {
             swapchain_inst.create_swapchain(&swapchain_create_info, None)?
         };
 
-        let swapchain_images = unsafe {
-            swapchain_inst.get_swapchain_images(swapchain)?
+        self.swapchain_images = unsafe {
+            swapchain_inst.get_swapchain_images(self.swapchain)?
         };
 
-        let swapchain_format = chosen_format.format;
-        let swapchain_extent = swap_extent;
-
         let mut swapchain_image_views = Vec::new();
-        for swapchain_image in &swapchain_images {
+        for swapchain_image in &self.swapchain_images {
             let image_view_create_info = vk::ImageViewCreateInfo::builder()
                 .image(*swapchain_image)
                 .view_type(vk::ImageViewType::TYPE_2D)
-                .format(swapchain_format)
+                .format(self.swapchain_format)
                 .components(vk::ComponentMapping {
                     r: vk::ComponentSwizzle::IDENTITY,
                     g: vk::ComponentSwizzle::IDENTITY,
@@ -400,36 +427,13 @@ impl VulkanEngine {
                                    .layer_count(1)
                                    .build());
             swapchain_image_views.push(unsafe {
-                device.create_image_view(&image_view_create_info, None)?
+                self.device.create_image_view(&image_view_create_info, None)?
             });
         }
 
-        Ok(VulkanEngine {
-            entry,
-            instance,
-            debug_layer,
-            chosen_gpu,
-            device,
-            queue,
-            surface,
-            sdl_context,
-            window,
-            qfi,
-            swapchain,
-            swapchain_images,
-            swapchain_format,
-            swapchain_extent,
-            swapchain_image_views,
-            render_pass: vk::RenderPass::null(),
-            pipeline_layout: vk::PipelineLayout::null(),
-            pipeline: vk::Pipeline::null(),
-            swapchain_framebuffers: vec![],
-            command_pool: vk::CommandPool::null(),
-            command_buffer: vk::CommandBuffer::null(),
-            image_available_semaphore: vk::Semaphore::null(),
-            render_finished_semaphore: vk::Semaphore::null(),
-            in_flight_fence: vk::Fence::null(),
-        })
+        self.swapchain_image_views = swapchain_image_views;
+
+        Ok(())
     }
 
     pub fn create_shader_module(
@@ -442,7 +446,7 @@ impl VulkanEngine {
         }
     }
 
-    pub fn generate_render_pass(&mut self) -> VkResult<()> {
+    pub fn populate_render_pass(&mut self) -> VkResult<()> {
         let color_attachments = [
             vk::AttachmentDescription::builder()
                 .format(self.swapchain_format)
@@ -485,7 +489,7 @@ impl VulkanEngine {
         Ok(())
     }
 
-    pub fn generate_graphics_pipeline(&mut self) -> VkResult<()> {
+    pub fn populate_graphics_pipeline(&mut self) -> VkResult<()> {
         let vertex_shader_source = r#"
           #version 450
 
@@ -676,7 +680,7 @@ impl VulkanEngine {
         Ok(())
     }
 
-    pub fn generate_framebuffers(&mut self) -> VkResult<()> {
+    pub fn populate_framebuffers(&mut self) -> VkResult<()> {
         self.swapchain_framebuffers.resize(self.swapchain_image_views.len(),
                                            vk::Framebuffer::null());
         for (i, image_view) in self.swapchain_image_views.iter().enumerate() {
@@ -697,7 +701,7 @@ impl VulkanEngine {
         Ok(())
     }
 
-    pub fn generate_command_pool_and_buffer(&mut self) -> VkResult<()> {
+    pub fn populate_command_pool_and_buffer(&mut self) -> VkResult<()> {
         let command_pool_create_info = vk::CommandPoolCreateInfo::builder()
             .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
             .queue_family_index(self.qfi.graphics.unwrap());
@@ -732,7 +736,7 @@ impl VulkanEngine {
         let clear_values = [
             vk::ClearValue {
                 color: vk::ClearColorValue {
-                    float32: [1.0, 0.5, 0.5, 0.5],
+                    float32: [1.0, 0.5, 0.5, 1.0],
                 },
             }
         ];
@@ -765,7 +769,7 @@ impl VulkanEngine {
         Ok(())
     }
 
-    pub fn generate_synchronization_primitives(&mut self) -> VkResult<()> {
+    pub fn populate_synchronization_primitives(&mut self) -> VkResult<()> {
         {
             let semaphore_create_info = vk::SemaphoreCreateInfo::builder();
             self.image_available_semaphore = unsafe {
@@ -877,11 +881,12 @@ impl VulkanEngine {
 
 pub fn main() {
     let mut engine = VulkanEngine::create(DebugLevel::Validation).unwrap();
-    engine.generate_render_pass().unwrap();
-    engine.generate_graphics_pipeline().unwrap();
-    engine.generate_framebuffers().unwrap();
-    engine.generate_command_pool_and_buffer().unwrap();
-    engine.generate_synchronization_primitives().unwrap();
+    engine.populate_swapchain().unwrap();
+    engine.populate_render_pass().unwrap();
+    engine.populate_graphics_pipeline().unwrap();
+    engine.populate_framebuffers().unwrap();
+    engine.populate_command_pool_and_buffer().unwrap();
+    engine.populate_synchronization_primitives().unwrap();
     let quit_mutex = std::sync::Arc::new(std::sync::Mutex::new(false));
     let handle = {
         let quit_mutex = std::sync::Arc::clone(&quit_mutex);
@@ -902,7 +907,7 @@ pub fn main() {
     unsafe {
         engine.device.device_wait_idle().unwrap();
     }
-    println!("DEBUG: {} frames", counter);
+    println!("Displayed {} frames", counter);
     handle.join().unwrap();
     engine.destroy();
 }
