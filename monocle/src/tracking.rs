@@ -535,23 +535,21 @@ impl VulkanEngine {
         let vertex_shader_source = r#"
           #version 450
 
-          // layout(location = 0) in vec2 pos;
-          // layout(location = 0) out vec2 v_position;
-          //
-          // void main() {
-          //   v_position = (pos + 1.0) / 2.0;
-          //   gl_Position = vec4(-pos.x, -pos.y, 0.0, 1.0);
-          // }
-
           layout(location = 0) out vec3 fragColor;
 
-          vec2 positions[3] = vec2[](
-              vec2(0.0, -0.5),
-              vec2(0.5, 0.5),
-              vec2(-0.5, 0.5)
+          vec2 positions[6] = vec2[](
+              vec2(-1.0, 1.0),
+              vec2(-1.0, -1.0),
+              vec2(1.0, 1.0),
+              vec2(-1.0, -1.0),
+              vec2(1.0, -1.0),
+              vec2(1.0, 1.0)
           );
 
-          vec3 colors[3] = vec3[](
+          vec3 colors[6] = vec3[](
+              vec3(1.0, 0.0, 0.0),
+              vec3(0.0, 1.0, 0.0),
+              vec3(0.0, 0.0, 1.0),
               vec3(1.0, 0.0, 0.0),
               vec3(0.0, 1.0, 0.0),
               vec3(0.0, 0.0, 1.0)
@@ -565,15 +563,6 @@ impl VulkanEngine {
 
         let fragment_shader_source = r#"
           #version 450
-
-          // layout(location = 0) in vec2 v_position;
-          // layout(location = 0) out vec4 color;
-          // layout(binding = 0) uniform sampler2D u_image;
-          //
-          // void main() {
-          //   vec2 pos = v_position;
-          //   color = texture(u_image, pos);
-          // }
 
           layout(location = 0) in vec3 fragColor;
           layout(location = 0) out vec4 outColor;
@@ -806,7 +795,7 @@ impl VulkanEngine {
             self.device.cmd_bind_pipeline(command_buffer,
                                           vk::PipelineBindPoint::GRAPHICS,
                                           self.pipeline);
-            self.device.cmd_draw(command_buffer, 3, 1, 0, 0);
+            self.device.cmd_draw(command_buffer, 6, 2, 0, 0);
         }
 
         unsafe {
