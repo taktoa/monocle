@@ -33,7 +33,7 @@ bincode = "*"
 rustyline = "*"
 exr = "*"
 drm = "*"
-#gbm = "*"
+gbm = "*"
 image = "*"
 imageproc = "*"
 once_cell = "*"
@@ -41,6 +41,11 @@ ordered-float = { version = "*", features = ["rand", "serde"] }
 log = { version = "*", features = ["max_level_trace", "release_max_level_trace"] }
 stderrlog = "*"
 float-ord = "*"
+uvc = { version = "*", features = [] }
+rustflow = "*"
+ash = { version = "*", features = ["linked"] }
+sdl2 = "*"
+shaderc = "*"
 
 [[bin]]
 name = "raspi"
@@ -54,5 +59,15 @@ bench = false
 
 [[bin]]
 name = "test"
+test = false
+bench = false
+
+[[bin]]
+name = "goto"
+test = false
+bench = false
+
+[[bin]]
+name = "track"
 test = false
 bench = false

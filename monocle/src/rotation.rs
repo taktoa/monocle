@@ -12,14 +12,14 @@ pub fn field_rotation_speed(
 }
 
 pub struct FieldRotation {
-    start_time: time::PreciseTime,
+    start_time: time::Instant,
     angle: RotationAngle,
 }
 
 impl FieldRotation {
     pub fn new() -> Self {
         FieldRotation {
-            start_time: time::PreciseTime::now(),
+            start_time: time::Instant::now(),
             angle: 0.0,
         }
     }
@@ -34,10 +34,10 @@ impl FieldRotation {
         az: Azimuth,
         alt: Altitude,
     ) -> RotationAngle {
-        let now = time::PreciseTime::now();
+        let now = time::Instant::now();
         self.angle +=
             field_rotation_speed(lat, az, alt)
-            * (self.start_time.to(now).num_milliseconds() as f64 / 1000.0);
+            * ((now - self.start_time).whole_microseconds() as f64 / 1000000.0);
         self.start_time = now;
         return self.angle;
     }

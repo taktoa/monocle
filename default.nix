@@ -21,6 +21,25 @@ let
       #   #rustPlatform = self.makeRustPlatform { inherit (self) cargo rustc; };
       # })
       (self: super: {
+        libuvc = super.libuvc.overrideAttrs (old: {
+          buildInputs = (old.buildInputs or []) ++ [
+            super.libjpeg
+          ];
+        });
+        renderdoc = super.renderdoc.overrideAttrs (old: {
+          version = "1.22";
+          src = super.fetchFromGitHub {
+            owner = "baldurk";
+            repo = "renderdoc";
+            rev = "v1.22";
+            sha256 = "sha256-eqMIOb9XAgXtoCJABvZkkS/rhHK7jNqabIFwdCgcSJU=";
+          };
+          #dontStrip = true;
+          #cmakeFlags = (old.cmakeFlags or []) ++ ["-DCMAKE_BUILD_TYPE=RelWithDebInfo"];
+        });
+      })
+      (self: super: {
+        monocleDev = self.callPackage ./monocle {};
         cargo2nix = ((self.rustBuilder.makePackageSet' {
           packageFun = import "${sources.cargo2nix}/Cargo.nix";
           rustChannel = "1.56.1";

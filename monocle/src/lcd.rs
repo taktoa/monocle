@@ -57,7 +57,7 @@ pub fn run(
     let resource_handles = drm.resource_handles()?;
 
     for connector in resource_handles.connectors() {
-        let info = drm.get_connector(connector.clone()).unwrap();
+        let info = drm.get_connector(connector.clone(), false).unwrap();
         trace!("Connector modes: {:?}", info.modes());
     }
 
@@ -67,7 +67,7 @@ pub fn run(
     let mut chosen_mode: Option<drm::control::Mode> = None;
     'outer1: for _ in 0..100000 {
         for connector in resource_handles.connectors() {
-            let info = drm.get_connector(connector.clone())?;
+            let info = drm.get_connector(connector.clone(), false)?;
             if info.interface() == Interface::HDMIA {
                 if info.state() == State::Connected {
                     let sizes: Vec<(u16, u16)> =
@@ -84,18 +84,16 @@ pub fn run(
     let chosen_connector = chosen_connector.unwrap();
     let chosen_mode = chosen_mode.unwrap();
 
-    trace!("connector = {:?}", drm.get_connector(chosen_connector.clone())?);
+    trace!("connector = {:?}", drm.get_connector(chosen_connector.clone(), false)?);
     trace!("mode      = {:?}", chosen_mode);
 
     debug!("Finding appropriate crtc");
     let mut chosen_crtc = None;
-    'outer2: for maybe_encoder in drm.get_connector(chosen_connector.clone())?.encoders() {
-        if let Some(encoder) = maybe_encoder {
-            let encoder_info = drm.get_encoder(encoder.clone())?;
-            for crtc in resource_handles.filter_crtcs(encoder_info.possible_crtcs()) {
-                chosen_crtc = Some(crtc.clone());
-                break 'outer2;
-            }
+    'outer2: for encoder in drm.get_connector(chosen_connector.clone(), false)?.encoders() {
+        let encoder_info = drm.get_encoder(encoder.clone())?;
+        for crtc in resource_handles.filter_crtcs(encoder_info.possible_crtcs()) {
+            chosen_crtc = Some(crtc.clone());
+            break 'outer2;
         }
     }
     let chosen_crtc = chosen_crtc.unwrap();
@@ -160,7 +158,7 @@ pub fn run(
 
     drm.page_flip(chosen_crtc,
                   *front_buffer,
-                  &[drm::control::PageFlipFlags::PageFlipEvent],
+                  drm::control::PageFlipFlags::EVENT,
                   None)?;
 
     debug!("Starting libdrm event loop");
@@ -177,7 +175,7 @@ pub fn run(
                         drm.page_flip(
                             chosen_crtc,
                             *front_buffer,
-                            &[drm::control::PageFlipFlags::PageFlipEvent],
+                            drm::control::PageFlipFlags::EVENT,
                             None)?;
                         if render_callback(back_dm) {
                             debug!("Render callback returned `true`, ending event loop");

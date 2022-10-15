@@ -22,6 +22,8 @@ pub mod rotation;
 pub mod mask;
 pub mod quantity;
 pub mod adaptive;
+pub mod goto;
+pub mod tracking;
 
 //pub fn print_peek(file: &std::fs::File, addr: u32) {
 //    println!("peek({:#x}) == {:#x}", addr, mailbox::peek(file, addr).unwrap());

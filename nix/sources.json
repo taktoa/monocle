@@ -17,10 +17,10 @@
         "homepage": "",
         "owner": "raspberrypi",
         "repo": "firmware",
-        "rev": "ca52e7c1303cb6caebfb88b50832d32c907ebcff",
-        "sha256": "1bb6qllhnkhxg4x80l6g74zkkvns9x03z5sa9zvrkgypwmbbp2fa",
+        "rev": "53f4941b7bb2512e07fa7c6baec29cbee4889848",
+        "sha256": "0s41pyj4szzgw19kz4jibxk0hkg3pns3fbl4zi3lc3i4lb2in10j",
         "type": "tarball",
-        "url": "https://github.com/raspberrypi/firmware/archive/ca52e7c1303cb6caebfb88b50832d32c907ebcff.tar.gz",
+        "url": "https://github.com/raspberrypi/firmware/archive/53f4941b7bb2512e07fa7c6baec29cbee4889848.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "naersk": {
@@ -41,22 +41,22 @@
         "homepage": "https://github.com/nmattia/niv",
         "owner": "nmattia",
         "repo": "niv",
-        "rev": "29ddaaf4e099c3ac0647f5b652469dfc79cd3b53",
-        "sha256": "1va6myp07gkspgxfch8z3rs9nyvys6jmgzkys6a2c4j09qxp1bs0",
+        "rev": "82e5cd1ad3c387863f0545d7591512e76ab0fc41",
+        "sha256": "090l219mzc0gi33i3psgph6s2pwsc8qy4lyrqjdj4qzkvmaj65a7",
         "type": "tarball",
-        "url": "https://github.com/nmattia/niv/archive/29ddaaf4e099c3ac0647f5b652469dfc79cd3b53.tar.gz",
+        "url": "https://github.com/nmattia/niv/archive/82e5cd1ad3c387863f0545d7591512e76ab0fc41.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "nixpkgs": {
-        "branch": "nixos-21.05",
+        "branch": "nixos-22.05",
         "description": "A read-only mirror of NixOS/nixpkgs tracking the released channels. Send issues and PRs to",
         "homepage": "https://github.com/NixOS/nixpkgs",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "5ebb1dca9bb056649cbd023f953c0c4e7970bb72",
-        "sha256": "04qsjsilkhql9a7fdvjq1xj1p6j3dflrvhxbqzch5qn6b87wlh4z",
+        "rev": "d86a4619b7e80bddb6c01bc01a954f368c56d1df",
+        "sha256": "03pk8ijq6c41y52srhy4agvwhh499jxs22bvwygnasnc2amfn56l",
         "type": "tarball",
-        "url": "https://github.com/nixos/nixpkgs/archive/5ebb1dca9bb056649cbd023f953c0c4e7970bb72.tar.gz",
+        "url": "https://github.com/nixos/nixpkgs/archive/d86a4619b7e80bddb6c01bc01a954f368c56d1df.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "nixpkgs-mozilla": {
@@ -65,10 +65,10 @@
         "homepage": "",
         "owner": "mozilla",
         "repo": "nixpkgs-mozilla",
-        "rev": "7c1e8b1dd6ed0043fb4ee0b12b815256b0b9de6f",
-        "sha256": "1a71nfw7d36vplf89fp65vgj3s66np1dc0hqnqgj5gbdnpm1bihl",
+        "rev": "80627b282705101e7b38e19ca6e8df105031b072",
+        "sha256": "11g9lppm53f5aq7a0fnwh5hivdhn2p1wmhwgmz1052x10hfqjrah",
         "type": "tarball",
-        "url": "https://github.com/mozilla/nixpkgs-mozilla/archive/7c1e8b1dd6ed0043fb4ee0b12b815256b0b9de6f.tar.gz",
+        "url": "https://github.com/mozilla/nixpkgs-mozilla/archive/80627b282705101e7b38e19ca6e8df105031b072.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "rpi-eeprom": {
@@ -77,10 +77,10 @@
         "homepage": "https://www.raspberrypi.org/documentation/hardware/raspberrypi/booteeprom.md",
         "owner": "raspberrypi",
         "repo": "rpi-eeprom",
-        "rev": "54a9796abbee59067bff9da6b90c1014178f2c21",
-        "sha256": "0yp7bn444n6yisp4hiblrm00rrvrf213amzb4sh96mlb5nhxspqk",
+        "rev": "272d1573e37d12d1914bd652ae365baa039c8ff0",
+        "sha256": "1px5m14rqa5yqz212c46x2klpygiq1w3s1mj4zf2khd9bf4kzwwb",
         "type": "tarball",
-        "url": "https://github.com/raspberrypi/rpi-eeprom/archive/54a9796abbee59067bff9da6b90c1014178f2c21.tar.gz",
+        "url": "https://github.com/raspberrypi/rpi-eeprom/archive/272d1573e37d12d1914bd652ae365baa039c8ff0.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "rpi-open-firmware": {
@@ -89,10 +89,10 @@
         "homepage": null,
         "owner": "librerpi",
         "repo": "rpi-open-firmware",
-        "rev": "059d2e0fc19e2d0f30bb74d42a82a2654f498f2d",
-        "sha256": "0crl6qgw69xs8a8lsp82k0c3rc1vgvkynp2if6lwhzxzsbw7zqbd",
+        "rev": "c60f52fbb13e1f27301721a90db407f5ab4915e3",
+        "sha256": "0gcs3a6zdgm5fkhg0lcp89als3wf2ak33si90fiykrbznbbnym5r",
         "type": "tarball",
-        "url": "https://github.com/librerpi/rpi-open-firmware/archive/059d2e0fc19e2d0f30bb74d42a82a2654f498f2d.tar.gz",
+        "url": "https://github.com/librerpi/rpi-open-firmware/archive/c60f52fbb13e1f27301721a90db407f5ab4915e3.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     },
     "rust-overlay": {
@@ -101,10 +101,10 @@
         "homepage": "",
         "owner": "oxalica",
         "repo": "rust-overlay",
-        "rev": "5e677c6fed9077cb9e2d037e2679676895b6e953",
-        "sha256": "17s5xgxxki6hny82844186zr9m0rp6vyml5004jik00fa291bh83",
+        "rev": "ad99d2a83db05d1c5caae4ac96f0515ba6f2b6df",
+        "sha256": "14w9ndw1y6pbn85r7as1md810ldvfnp1kn32jxywdqrbi3zf2ndc",
         "type": "tarball",
-        "url": "https://github.com/oxalica/rust-overlay/archive/5e677c6fed9077cb9e2d037e2679676895b6e953.tar.gz",
+        "url": "https://github.com/oxalica/rust-overlay/archive/ad99d2a83db05d1c5caae4ac96f0515ba6f2b6df.tar.gz",
         "url_template": "https://github.com/<owner>/<repo>/archive/<rev>.tar.gz"
     }
 }

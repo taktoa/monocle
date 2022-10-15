@@ -71,12 +71,13 @@ impl TrackingMode {
 }
 
 pub struct Connection {
-    port: serial::SystemPort,
-    version: Version,
-    tracking: TrackingMode,
-    aligned: bool,
+    pub port: serial::SystemPort,
+    pub version: Version,
+    pub tracking: TrackingMode,
+    pub aligned: bool,
 }
 
+#[derive(Debug)]
 pub enum Error {
     /// The telescope needs to be aligned.
     NeedsAlignment,
@@ -213,6 +214,7 @@ impl Connection {
         if *(buf.last().unwrap()) != b'#' {
             let mut extra: [u8; 1] = [0; 1];
             self.port.read_exact(&mut extra)?;
+            println!("DEBUG: {}", String::from_utf8(buf.split_at(response_size).0.to_vec())?);
             if extra[0] != b'#' {
                 return Err(Error::InvalidResponse);
             } else {
@@ -248,10 +250,10 @@ impl Connection {
     pub fn get_az_alt(&mut self) -> Result<(Azimuth, Altitude), Error> {
         assert!(self.version >= (Version { major: 1, minor: 2 }));
         if self.version >= (Version { major: 2, minor: 2 }) {
-            let precise = self.send("z", 0)?;
+            let precise = self.send("z", 17)?;
             Ok(precise_nexstar_to_dd(&precise)?)
         } else {
-            let imprecise = self.send("Z", 0)?;
+            let imprecise = self.send("Z", 9)?;
             Ok(imprecise_nexstar_to_dd(&imprecise)?)
         }
     }
