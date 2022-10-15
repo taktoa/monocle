@@ -158,6 +158,46 @@ impl SwapChainSupportDetails {
     }
 }
 
+const MAX_FRAMES_IN_FLIGHT: usize = 2;
+
+struct FrameMap<T> {
+    frames: [T; MAX_FRAMES_IN_FLIGHT],
+}
+
+impl<T> FrameMap<T> {
+    pub fn new(initial: T) -> Self where T: Copy {
+        FrameMap {
+            frames: [initial; MAX_FRAMES_IN_FLIGHT],
+        }
+    }
+
+    pub fn len(&self) -> usize {
+        self.frames.len()
+    }
+
+    pub fn get(&self, index: usize) -> &T {
+        &self.frames[index]
+    }
+
+    pub fn get_mut(&mut self, index: usize) -> &mut T {
+        &mut self.frames[index]
+    }
+
+    pub fn set(&mut self, index: usize, value: T) {
+        self.frames[index] = value;
+    }
+
+    pub fn iter(&self) -> std::iter::Enumerate<std::slice::Iter<'_, T>> {
+        self.frames.iter().enumerate()
+    }
+
+    pub fn iter_mut(
+        &mut self
+    ) -> std::iter::Enumerate<std::slice::IterMut<'_, T>> {
+        self.frames.iter_mut().enumerate()
+    }
+}
+
 struct VulkanEngine {
     pub entry: ash::Entry,
     pub instance: ash::Instance,
@@ -179,10 +219,11 @@ struct VulkanEngine {
     pub pipeline: vk::Pipeline,
     pub swapchain_framebuffers: Vec<vk::Framebuffer>,
     pub command_pool: vk::CommandPool,
-    pub command_buffer: vk::CommandBuffer,
-    pub image_available_semaphore: vk::Semaphore,
-    pub render_finished_semaphore: vk::Semaphore,
-    pub in_flight_fence: vk::Fence,
+    pub command_buffers: FrameMap<vk::CommandBuffer>,
+    pub current_frame: usize,
+    pub image_available_semaphores: FrameMap<vk::Semaphore>,
+    pub render_finished_semaphores: FrameMap<vk::Semaphore>,
+    pub in_flight_fences: FrameMap<vk::Fence>,
 }
 
 impl VulkanEngine {
@@ -322,10 +363,11 @@ impl VulkanEngine {
             pipeline: vk::Pipeline::null(),
             swapchain_framebuffers: vec![],
             command_pool: vk::CommandPool::null(),
-            command_buffer: vk::CommandBuffer::null(),
-            image_available_semaphore: vk::Semaphore::null(),
-            render_finished_semaphore: vk::Semaphore::null(),
-            in_flight_fence: vk::Fence::null(),
+            current_frame: 0,
+            command_buffers: FrameMap::new(vk::CommandBuffer::null()),
+            image_available_semaphores: FrameMap::new(vk::Semaphore::null()),
+            render_finished_semaphores: FrameMap::new(vk::Semaphore::null()),
+            in_flight_fences: FrameMap::new(vk::Fence::null()),
         })
     }
 
@@ -701,7 +743,7 @@ impl VulkanEngine {
         Ok(())
     }
 
-    pub fn populate_command_pool_and_buffer(&mut self) -> VkResult<()> {
+    pub fn populate_command_pool_and_buffers(&mut self) -> VkResult<()> {
         let command_pool_create_info = vk::CommandPoolCreateInfo::builder()
             .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
             .queue_family_index(self.qfi.graphics.unwrap());
@@ -715,11 +757,14 @@ impl VulkanEngine {
             vk::CommandBufferAllocateInfo::builder()
             .command_pool(self.command_pool)
             .level(vk::CommandBufferLevel::PRIMARY)
-            .command_buffer_count(1);
-        self.command_buffer = unsafe {
+            .command_buffer_count(self.command_buffers.len() as u32);
+        let command_buffers = unsafe {
             self.device
-                .allocate_command_buffers(&command_buffer_allocate_info)?[0]
+                .allocate_command_buffers(&command_buffer_allocate_info)?
         };
+        for (i, buf) in command_buffers.iter().enumerate() {
+            self.command_buffers.set(i, *buf);
+        }
 
         println!("Successfully created command buffer");
 
@@ -727,9 +772,12 @@ impl VulkanEngine {
     }
 
     pub fn record_command_buffer(&self, image_index: usize) -> VkResult<()> {
+        let command_buffer =
+            self.command_buffers.get(self.current_frame).clone();
+
         let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder();
         unsafe {
-            self.device.begin_command_buffer(self.command_buffer,
+            self.device.begin_command_buffer(command_buffer,
                                              &command_buffer_begin_info)?;
         }
 
@@ -749,47 +797,47 @@ impl VulkanEngine {
             })
             .clear_values(&clear_values);
         unsafe {
-            self.device.cmd_begin_render_pass(self.command_buffer,
+            self.device.cmd_begin_render_pass(command_buffer,
                                               &render_pass_begin_info,
                                               vk::SubpassContents::INLINE);
         }
 
         unsafe {
-            self.device.cmd_bind_pipeline(self.command_buffer,
+            self.device.cmd_bind_pipeline(command_buffer,
                                           vk::PipelineBindPoint::GRAPHICS,
                                           self.pipeline);
-            self.device.cmd_draw(self.command_buffer, 3, 1, 0, 0);
+            self.device.cmd_draw(command_buffer, 3, 1, 0, 0);
         }
 
         unsafe {
-            self.device.cmd_end_render_pass(self.command_buffer);
-            self.device.end_command_buffer(self.command_buffer)?;
+            self.device.cmd_end_render_pass(command_buffer);
+            self.device.end_command_buffer(command_buffer)?;
         }
 
         Ok(())
     }
 
     pub fn populate_synchronization_primitives(&mut self) -> VkResult<()> {
-        {
+        for (frame, sem) in self.image_available_semaphores.iter_mut() {
             let semaphore_create_info = vk::SemaphoreCreateInfo::builder();
-            self.image_available_semaphore = unsafe {
+            *sem = unsafe {
                 self.device.create_semaphore(&semaphore_create_info, None)?
             };
         }
 
-        {
+        for (frame, sem) in self.render_finished_semaphores.iter_mut() {
             let semaphore_create_info = vk::SemaphoreCreateInfo::builder();
-            self.render_finished_semaphore = unsafe {
+            *sem = unsafe {
                 self.device.create_semaphore(&semaphore_create_info, None)?
             };
         }
 
         println!("Created semaphores");
 
-        {
+        for (frame, fence) in self.in_flight_fences.iter_mut() {
             let fence_create_info = vk::FenceCreateInfo::builder()
                 .flags(vk::FenceCreateFlags::SIGNALED);
-            self.in_flight_fence = unsafe {
+            *fence = unsafe {
                 self.device.create_fence(&fence_create_info, None)?
             };
         }
@@ -799,33 +847,43 @@ impl VulkanEngine {
         Ok(())
     }
 
-    pub fn draw_frame(&self) -> VkResult<()> {
+    pub fn draw_frame(&mut self) -> VkResult<()> {
+        let image_available_semaphore =
+            self.image_available_semaphores.get(self.current_frame).clone();
+        let render_finished_semaphore =
+            self.render_finished_semaphores.get(self.current_frame).clone();
+        let in_flight_fence =
+            self.in_flight_fences.get(self.current_frame).clone();
+        let command_buffer =
+            self.command_buffers.get(self.current_frame).clone();
+
         unsafe {
-            self.device.wait_for_fences(
-                &[self.in_flight_fence], true, u64::MAX)?;
-            self.device.reset_fences(&[self.in_flight_fence])?;
+            self.device.wait_for_fences(&[in_flight_fence], true, u64::MAX)?;
+            self.device.reset_fences(&[in_flight_fence])?;
         }
 
         let swapchain_inst =
             ash::extensions::khr::Swapchain::new(&self.instance, &self.device);
 
         let (image_index, _is_suboptimal) = unsafe {
-            swapchain_inst.acquire_next_image(self.swapchain, u64::MAX,
-                                              self.image_available_semaphore,
-                                              vk::Fence::null())?
+            swapchain_inst.acquire_next_image(
+                self.swapchain, u64::MAX,
+                image_available_semaphore,
+                vk::Fence::null()
+            )?
         };
 
         unsafe {
             self.device.reset_command_buffer(
-                self.command_buffer,
+                command_buffer,
                 vk::CommandBufferResetFlags::empty())?;
             self.record_command_buffer(image_index as usize)?;
         }
 
-        let wait_semaphores = [self.image_available_semaphore];
+        let wait_semaphores = [image_available_semaphore];
         let wait_stages = [vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT];
-        let command_buffers = [self.command_buffer];
-        let signal_semaphores = [self.render_finished_semaphore];
+        let command_buffers = [command_buffer];
+        let signal_semaphores = [render_finished_semaphore];
         let submit_infos = [
             vk::SubmitInfo::builder()
                 .wait_semaphores(&wait_semaphores)
@@ -836,7 +894,7 @@ impl VulkanEngine {
         ];
         unsafe {
             self.device.queue_submit(self.queue, &submit_infos,
-                                     self.in_flight_fence)?;
+                                     in_flight_fence)?;
         }
 
         let swapchains = [self.swapchain];
@@ -849,14 +907,24 @@ impl VulkanEngine {
             swapchain_inst.queue_present(self.queue, &present_info)?;
         }
 
+        self.current_frame = (self.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
+
         Ok(())
     }
 
     pub fn destroy(self) {
         unsafe {
-            self.device.destroy_semaphore(self.image_available_semaphore, None);
-            self.device.destroy_semaphore(self.render_finished_semaphore, None);
-            self.device.destroy_fence(self.in_flight_fence, None);
+            for (_, sem) in self.image_available_semaphores.iter() {
+                self.device.destroy_semaphore(*sem, None);
+            }
+
+            for (_, sem) in self.render_finished_semaphores.iter() {
+                self.device.destroy_semaphore(*sem, None);
+            }
+
+            for (_, fence) in self.in_flight_fences.iter() {
+                self.device.destroy_fence(*fence, None);
+            }
 
             self.device.destroy_command_pool(self.command_pool, None);
 
@@ -885,7 +953,7 @@ pub fn main() {
     engine.populate_render_pass().unwrap();
     engine.populate_graphics_pipeline().unwrap();
     engine.populate_framebuffers().unwrap();
-    engine.populate_command_pool_and_buffer().unwrap();
+    engine.populate_command_pool_and_buffers().unwrap();
     engine.populate_synchronization_primitives().unwrap();
     let quit_mutex = std::sync::Arc::new(std::sync::Mutex::new(false));
     let handle = {
