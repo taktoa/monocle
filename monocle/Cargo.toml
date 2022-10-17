@@ -46,6 +46,7 @@ rustflow = "*"
 ash = { version = "*", features = ["linked"] }
 sdl2 = "*"
 shaderc = "*"
+bmp = "*"
 
 [[bin]]
 name = "raspi"
