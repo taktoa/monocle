@@ -215,6 +215,8 @@ struct VulkanEngine {
     pub swapchain_extent: vk::Extent2D,
     pub swapchain_image_views: Vec<vk::ImageView>,
     pub render_pass: vk::RenderPass,
+    pub descriptor_set_layout: vk::DescriptorSetLayout,
+    pub descriptor_pool: vk::DescriptorPool,
     pub pipeline_layout: vk::PipelineLayout,
     pub pipeline: vk::Pipeline,
     pub swapchain_framebuffers: Vec<vk::Framebuffer>,
@@ -224,6 +226,11 @@ struct VulkanEngine {
     pub image_available_semaphores: FrameMap<vk::Semaphore>,
     pub render_finished_semaphores: FrameMap<vk::Semaphore>,
     pub in_flight_fences: FrameMap<vk::Fence>,
+    pub descriptor_sets: FrameMap<vk::DescriptorSet>,
+    pub texture_image: vk::Image,
+    pub texture_image_memory: vk::DeviceMemory,
+    pub texture_image_view: vk::ImageView,
+    pub texture_sampler: vk::Sampler,
 }
 
 impl VulkanEngine {
@@ -323,7 +330,8 @@ impl VulkanEngine {
 
         let device_queue_create_infos = [device_queue_create_info];
 
-        let device_features = vk::PhysicalDeviceFeatures::builder();
+        let device_features = vk::PhysicalDeviceFeatures::builder()
+            .sampler_anisotropy(true);
 
         let device_extensions = [
             ash::extensions::khr::Swapchain::name().as_ptr(),
@@ -359,6 +367,8 @@ impl VulkanEngine {
             swapchain_extent: vk::Extent2D::builder().build(),
             swapchain_image_views: vec![],
             render_pass: vk::RenderPass::null(),
+            descriptor_set_layout: vk::DescriptorSetLayout::null(),
+            descriptor_pool: vk::DescriptorPool::null(),
             pipeline_layout: vk::PipelineLayout::null(),
             pipeline: vk::Pipeline::null(),
             swapchain_framebuffers: vec![],
@@ -368,7 +378,113 @@ impl VulkanEngine {
             image_available_semaphores: FrameMap::new(vk::Semaphore::null()),
             render_finished_semaphores: FrameMap::new(vk::Semaphore::null()),
             in_flight_fences: FrameMap::new(vk::Fence::null()),
+            descriptor_sets: FrameMap::new(vk::DescriptorSet::null()),
+            texture_image: vk::Image::null(),
+            texture_image_memory: vk::DeviceMemory::null(),
+            texture_image_view: vk::ImageView::null(),
+            texture_sampler: vk::Sampler::null(),
         })
+    }
+
+    pub fn find_memory_type(
+        &self,
+        type_filter: u32,
+        properties: vk::MemoryPropertyFlags,
+    ) -> VkResult<u32> {
+        let mem_properties = unsafe {
+            self.instance.get_physical_device_memory_properties(self.chosen_gpu)
+        };
+        for i in 0 .. mem_properties.memory_type_count {
+            if (type_filter & (1 << i)) != 0 {
+                return Ok(i);
+            }
+        }
+        panic!("Failed to find suitable memory type");
+    }
+
+    pub fn create_buffer(
+        &self,
+        size: vk::DeviceSize,
+        usage: vk::BufferUsageFlags,
+        properties: vk::MemoryPropertyFlags,
+    ) -> VkResult<(vk::Buffer, vk::DeviceMemory)> {
+        let buffer_info = vk::BufferCreateInfo::builder()
+            .size(size)
+            .usage(usage)
+            .sharing_mode(vk::SharingMode::EXCLUSIVE);
+        let buffer = unsafe {
+            self.device.create_buffer(&buffer_info, None)?
+        };
+
+        let mem_requirements = unsafe {
+            self.device.get_buffer_memory_requirements(buffer)
+        };
+
+        let memory_type_index = self.find_memory_type(
+            mem_requirements.memory_type_bits,
+            properties)?;
+        let alloc_info = vk::MemoryAllocateInfo::builder()
+            .allocation_size(mem_requirements.size)
+            .memory_type_index(memory_type_index);
+
+        let memory = unsafe {
+            self.device.allocate_memory(&alloc_info, None)?
+        };
+
+        unsafe {
+            self.device.bind_buffer_memory(buffer, memory, 0)?
+        }
+
+        Ok((buffer, memory))
+    }
+
+    pub fn begin_single_time_commands(&self) -> VkResult<vk::CommandBuffer> {
+        let alloc_info = vk::CommandBufferAllocateInfo::builder()
+            .level(vk::CommandBufferLevel::PRIMARY)
+            .command_pool(self.command_pool)
+            .command_buffer_count(1);
+        let command_buffer = unsafe {
+            self.device.allocate_command_buffers(&alloc_info)?[0]
+        };
+
+        let begin_info = vk::CommandBufferBeginInfo::builder()
+            .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+        unsafe {
+            self.device.begin_command_buffer(command_buffer, &begin_info)?;
+        }
+
+        Ok(command_buffer)
+    }
+
+    pub fn end_single_time_commands(
+        &self,
+        command_buffer: vk::CommandBuffer
+    ) -> VkResult<()> {
+        let buffers = [command_buffer];
+        let submit_info = vk::SubmitInfo::builder()
+            .command_buffers(&buffers)
+            .build();
+        unsafe {
+            self.device.end_command_buffer(command_buffer)?;
+            self.device.queue_submit(
+                self.queue, &[submit_info], vk::Fence::null())?;
+            self.device.queue_wait_idle(self.queue)?;
+            self.device.free_command_buffers(self.command_pool, &buffers);
+        }
+        Ok(())
+    }
+
+    pub fn copy_buffer(
+        &self, source: vk::Buffer, target: vk::Buffer, size: vk::DeviceSize
+    ) -> VkResult<()> {
+        let command_buffer = self.begin_single_time_commands()?;
+        let copy_regions = [vk::BufferCopy::builder().size(size).build()];
+        unsafe {
+            self.device.cmd_copy_buffer(
+                command_buffer, source, target, &copy_regions);
+        }
+        self.end_single_time_commands(command_buffer)?;
+        Ok(())
     }
 
     pub fn populate_swapchain(&mut self) -> VkResult<()> {
@@ -531,6 +647,23 @@ impl VulkanEngine {
         Ok(())
     }
 
+    pub fn populate_descriptor_set_layout(&mut self) -> VkResult<()> {
+        let ubo_layout_bindings = [
+            vk::DescriptorSetLayoutBinding::builder()
+                .binding(0)
+                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                .descriptor_count(1)
+                .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+                .build()
+        ];
+        let layout_info = vk::DescriptorSetLayoutCreateInfo::builder()
+            .bindings(&ubo_layout_bindings);
+        self.descriptor_set_layout = unsafe {
+            self.device.create_descriptor_set_layout(&layout_info, None)?
+        };
+        Ok(())
+    }
+
     pub fn populate_graphics_pipeline(&mut self) -> VkResult<()> {
         let vertex_shader_source = r#"
           #version 450
@@ -538,18 +671,18 @@ impl VulkanEngine {
           layout(location = 0) out vec2 position;
 
           vec2 positions[6] = vec2[](
+              vec2(-1.0, -1.0),
               vec2(-1.0, 1.0),
-              vec2(-1.0, -1.0),
-              vec2(1.0, 1.0),
-              vec2(-1.0, -1.0),
               vec2(1.0, -1.0),
-              vec2(1.0, 1.0)
+              vec2(-1.0, 1.0),
+              vec2(1.0, 1.0),
+              vec2(1.0, -1.0)
           );
 
           void main() {
             vec2 pos = positions[gl_VertexIndex];
             position = (pos + 1.0) / 2.0;
-            gl_Position = vec4(-pos.x, -pos.y, 0.0, 1.0);
+            gl_Position = vec4(-pos.x, pos.y, 0.0, 1.0);
           }
         "#;
 
@@ -658,8 +791,12 @@ impl VulkanEngine {
             .logic_op_enable(false)
             .attachments(&pipeline_color_blend_attachment_states);
 
+        let set_layouts = [
+            self.descriptor_set_layout
+        ];
         let pipeline_layout_create_info =
-            vk::PipelineLayoutCreateInfo::builder();
+            vk::PipelineLayoutCreateInfo::builder()
+            .set_layouts(&set_layouts);
 
         self.pipeline_layout = unsafe {
             self.device.create_pipeline_layout(
@@ -725,7 +862,7 @@ impl VulkanEngine {
         Ok(())
     }
 
-    pub fn populate_command_pool_and_buffers(&mut self) -> VkResult<()> {
+    pub fn populate_command_pool(&mut self) -> VkResult<()> {
         let command_pool_create_info = vk::CommandPoolCreateInfo::builder()
             .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
             .queue_family_index(self.qfi.graphics.unwrap());
@@ -735,6 +872,326 @@ impl VulkanEngine {
 
         println!("Successfully created command pool");
 
+        Ok(())
+    }
+
+    // pub fn populate_uniform_buffers(&mut self) -> VkResult<()> {
+    //     let buffer_size: vk::DeviceSize =
+    //     Ok(())
+    // }
+
+    pub fn populate_descriptor_pool(&mut self) -> VkResult<()> {
+        let descriptor_pool_sizes = [
+            vk::DescriptorPoolSize::builder()
+                .ty(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                .descriptor_count(MAX_FRAMES_IN_FLIGHT as u32)
+                .build()
+        ];
+        let descriptor_pool_create_info =
+            vk::DescriptorPoolCreateInfo::builder()
+            .pool_sizes(&descriptor_pool_sizes)
+            .max_sets(MAX_FRAMES_IN_FLIGHT as u32);
+        self.descriptor_pool = unsafe {
+            self.device.create_descriptor_pool(
+                &descriptor_pool_create_info, None)?
+        };
+        Ok(())
+    }
+
+    pub fn transition_image_layout(
+        &self,
+        image: vk::Image,
+        format: vk::Format,
+        old_layout: vk::ImageLayout,
+        new_layout: vk::ImageLayout,
+    ) -> VkResult<()> {
+        let command_buffer = self.begin_single_time_commands()?;
+
+        let mut src_access_mask = vk::AccessFlags::empty();
+        let mut dst_access_mask = vk::AccessFlags::empty();
+        let mut src_stage = vk::PipelineStageFlags::empty();
+        let mut dst_stage = vk::PipelineStageFlags::empty();
+
+        if (old_layout == vk::ImageLayout::UNDEFINED) && (new_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL) {
+            dst_access_mask = vk::AccessFlags::TRANSFER_WRITE;
+            src_stage = vk::PipelineStageFlags::TOP_OF_PIPE;
+            dst_stage = vk::PipelineStageFlags::TRANSFER;
+        } else if (old_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL) && (new_layout == vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL) {
+            src_access_mask = vk::AccessFlags::TRANSFER_WRITE;
+            dst_access_mask = vk::AccessFlags::SHADER_READ;
+            src_stage = vk::PipelineStageFlags::TRANSFER;
+            dst_stage = vk::PipelineStageFlags::FRAGMENT_SHADER;
+        } else {
+            panic!("Unsupported layout transition!");
+        }
+
+        let barrier = vk::ImageMemoryBarrier::builder()
+            .old_layout(old_layout)
+            .new_layout(new_layout)
+            .src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+            .dst_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
+            .image(image)
+            .subresource_range(vk::ImageSubresourceRange::builder()
+                               .aspect_mask(vk::ImageAspectFlags::COLOR)
+                               .base_mip_level(0)
+                               .level_count(1)
+                               .base_array_layer(0)
+                               .layer_count(1)
+                               .build())
+            .src_access_mask(src_access_mask)
+            .dst_access_mask(dst_access_mask)
+            .build();
+
+        unsafe {
+            self.device.cmd_pipeline_barrier(
+                command_buffer,
+                src_stage,
+                dst_stage,
+                vk::DependencyFlags::empty(),
+                &[],
+                &[],
+                &[barrier],
+            );
+        }
+
+        self.end_single_time_commands(command_buffer)?;
+        Ok(())
+    }
+
+    pub fn copy_buffer_to_image(
+        &self,
+        buffer: vk::Buffer,
+        image: vk::Image,
+        width: u32,
+        height: u32,
+    ) -> VkResult<()> {
+        let command_buffer = self.begin_single_time_commands()?;
+
+        let regions = [
+            vk::BufferImageCopy::builder()
+                .buffer_offset(0)
+                .buffer_row_length(0)
+                .buffer_image_height(0)
+                .image_subresource(vk::ImageSubresourceLayers::builder()
+                                   .aspect_mask(vk::ImageAspectFlags::COLOR)
+                                   .mip_level(0)
+                                   .base_array_layer(0)
+                                   .layer_count(1)
+                                   .build())
+                .image_offset(vk::Offset3D::builder().build())
+                .image_extent(vk::Extent3D::builder()
+                              .width(width)
+                              .height(height)
+                              .depth(1)
+                              .build())
+                .build(),
+        ];
+
+        unsafe {
+            self.device.cmd_copy_buffer_to_image(
+                command_buffer,
+                buffer,
+                image,
+                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                &regions,
+            );
+        }
+
+        self.end_single_time_commands(command_buffer)?;
+        Ok(())
+    }
+
+    pub fn populate_texture_image(&mut self) -> VkResult<()> {
+        let bmp = bmp::open("/home/remy/Downloads/texture.bmp").unwrap();
+        let image_size = bmp.get_width() * bmp.get_height() * 4;
+        let mut image_vec: Vec<u8> = Vec::new();
+
+        let (staging_buffer, staging_buffer_memory) = self.create_buffer(
+            image_size as u64,
+            vk::BufferUsageFlags::TRANSFER_SRC,
+            vk::MemoryPropertyFlags::HOST_VISIBLE
+                | vk::MemoryPropertyFlags::HOST_COHERENT,
+        )?;
+
+        let ptr: *mut u8 = unsafe {
+            std::mem::transmute(self.device.map_memory(
+                staging_buffer_memory,
+                0,
+                image_size as u64,
+                vk::MemoryMapFlags::empty(),
+            )?)
+        };
+        {
+            let mut i = 0;
+            for y in 0 .. bmp.get_height() {
+                for x in 0 .. bmp.get_width() {
+                    let pixel = bmp.get_pixel(x, y);
+                    unsafe {
+                        *ptr.offset(i + 0) = pixel.r;
+                        *ptr.offset(i + 1) = pixel.g;
+                        *ptr.offset(i + 2) = pixel.b;
+                        *ptr.offset(i + 3) = 255u8;
+                    }
+                    i += 4;
+                }
+            }
+        }
+        unsafe {
+            self.device.unmap_memory(staging_buffer_memory);
+        }
+
+        let image_info = vk::ImageCreateInfo::builder()
+            .image_type(vk::ImageType::TYPE_2D)
+            .extent(vk::Extent3D {
+                width: bmp.get_width(),
+                height: bmp.get_height(),
+                depth: 1,
+            })
+            .mip_levels(1)
+            .array_layers(1)
+            .format(vk::Format::R8G8B8A8_SRGB)
+            .tiling(vk::ImageTiling::OPTIMAL)
+            .initial_layout(vk::ImageLayout::UNDEFINED)
+            .usage(vk::ImageUsageFlags::TRANSFER_DST
+                   | vk::ImageUsageFlags::SAMPLED)
+            .sharing_mode(vk::SharingMode::EXCLUSIVE)
+            .samples(vk::SampleCountFlags::TYPE_1);
+        self.texture_image = unsafe {
+            self.device.create_image(&image_info, None)?
+        };
+
+        let mem_requirements = unsafe {
+            self.device.get_image_memory_requirements(self.texture_image)
+        };
+        let alloc_info = vk::MemoryAllocateInfo::builder()
+            .allocation_size(mem_requirements.size)
+            .memory_type_index(
+                self.find_memory_type(
+                    mem_requirements.memory_type_bits,
+                    vk::MemoryPropertyFlags::DEVICE_LOCAL,
+                )?);
+        self.texture_image_memory = unsafe {
+            self.device.allocate_memory(&alloc_info, None)?
+        };
+
+        unsafe {
+            self.device.bind_image_memory(
+                self.texture_image, self.texture_image_memory, 0);
+        }
+
+        self.transition_image_layout(
+            self.texture_image,
+            vk::Format::R8G8B8A8_SRGB,
+            vk::ImageLayout::UNDEFINED,
+            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+        )?;
+
+        self.copy_buffer_to_image(
+            staging_buffer,
+            self.texture_image,
+            bmp.get_width(),
+            bmp.get_height(),
+        )?;
+
+        self.transition_image_layout(
+            self.texture_image,
+            vk::Format::R8G8B8A8_SRGB,
+            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+            vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        )?;
+
+        unsafe {
+            self.device.destroy_buffer(staging_buffer, None);
+            self.device.free_memory(staging_buffer_memory, None);
+        }
+
+        Ok(())
+    }
+
+    pub fn populate_texture_image_view(&mut self) -> VkResult<()> {
+        let view_info = vk::ImageViewCreateInfo::builder()
+            .image(self.texture_image)
+            .view_type(vk::ImageViewType::TYPE_2D)
+            .format(vk::Format::R8G8B8A8_SRGB)
+            .subresource_range(vk::ImageSubresourceRange::builder()
+                               .aspect_mask(vk::ImageAspectFlags::COLOR)
+                               .base_mip_level(0)
+                               .level_count(1)
+                               .base_array_layer(0)
+                               .layer_count(1)
+                               .build());
+        self.texture_image_view = unsafe {
+            self.device.create_image_view(&view_info, None)?
+        };
+        Ok(())
+    }
+
+    pub fn populate_texture_sampler(&mut self) -> VkResult<()> {
+        let properties = unsafe {
+            self.instance.get_physical_device_properties(self.chosen_gpu)
+        };
+
+        let sampler_info = vk::SamplerCreateInfo::builder()
+            .mag_filter(vk::Filter::LINEAR)
+            .min_filter(vk::Filter::LINEAR)
+            .address_mode_u(vk::SamplerAddressMode::REPEAT)
+            .address_mode_v(vk::SamplerAddressMode::REPEAT)
+            .address_mode_w(vk::SamplerAddressMode::REPEAT)
+            .anisotropy_enable(true)
+            .max_anisotropy(properties.limits.max_sampler_anisotropy)
+            .border_color(vk::BorderColor::INT_OPAQUE_BLACK)
+            .unnormalized_coordinates(false)
+            .compare_enable(false)
+            .compare_op(vk::CompareOp::ALWAYS)
+            .mipmap_mode(vk::SamplerMipmapMode::LINEAR)
+            .mip_lod_bias(0.0)
+            .min_lod(0.0)
+            .max_lod(0.0);
+
+        self.texture_sampler = unsafe {
+            self.device.create_sampler(&sampler_info, None)?
+        };
+
+        Ok(())
+    }
+
+    pub fn populate_descriptor_sets(&mut self) -> VkResult<()> {
+        let layouts = FrameMap::new(self.descriptor_set_layout);
+        let allocate_info = vk::DescriptorSetAllocateInfo::builder()
+            .descriptor_pool(self.descriptor_pool)
+            .set_layouts(&layouts.frames);
+
+        let descriptor_sets = unsafe {
+            self.device.allocate_descriptor_sets(&allocate_info)?
+        };
+
+        for (frame, descriptor_set) in self.descriptor_sets.iter_mut() {
+            *descriptor_set = descriptor_sets[frame];
+        }
+
+        for (frame, descriptor_set) in self.descriptor_sets.iter() {
+            let image_info = vk::DescriptorImageInfo::builder()
+                .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
+                .image_view(self.texture_image_view)
+                .sampler(self.texture_sampler)
+                .build();
+
+            let descriptor_write = vk::WriteDescriptorSet::builder()
+                .dst_set(*descriptor_set)
+                .dst_binding(0)
+                .dst_array_element(0)
+                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                .image_info(&[image_info])
+                .build();
+
+            unsafe {
+                self.device.update_descriptor_sets(&[descriptor_write], &[]);
+            }
+        }
+        Ok(())
+    }
+
+    pub fn populate_command_buffers(&mut self) -> VkResult<()> {
         let command_buffer_allocate_info =
             vk::CommandBufferAllocateInfo::builder()
             .command_pool(self.command_pool)
@@ -788,6 +1245,17 @@ impl VulkanEngine {
             self.device.cmd_bind_pipeline(command_buffer,
                                           vk::PipelineBindPoint::GRAPHICS,
                                           self.pipeline);
+            let descriptor_sets = [
+                *self.descriptor_sets.get(self.current_frame)
+            ];
+            self.device.cmd_bind_descriptor_sets(
+                command_buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.pipeline_layout,
+                0,
+                &descriptor_sets,
+                &[],
+            );
             self.device.cmd_draw(command_buffer, 6, 2, 0, 0);
         }
 
@@ -908,6 +1376,10 @@ impl VulkanEngine {
                 self.device.destroy_fence(*fence, None);
             }
 
+            self.device.destroy_descriptor_set_layout(
+                self.descriptor_set_layout, None);
+            self.device.destroy_descriptor_pool(self.descriptor_pool, None);
+
             self.device.destroy_command_pool(self.command_pool, None);
 
             for framebuffer in self.swapchain_framebuffers {
@@ -925,6 +1397,11 @@ impl VulkanEngine {
             let swapchain_inst = ash::extensions::khr::Swapchain::new(
                 &self.instance, &self.device);
             swapchain_inst.destroy_swapchain(self.swapchain, None);
+
+            self.device.destroy_sampler(self.texture_sampler, None);
+            self.device.destroy_image_view(self.texture_image_view, None);
+            self.device.destroy_image(self.texture_image, None);
+            self.device.free_memory(self.texture_image_memory, None);
         }
     }
 }
@@ -933,15 +1410,23 @@ pub fn main() {
     let mut engine = VulkanEngine::create(DebugLevel::Validation).unwrap();
     engine.populate_swapchain().unwrap();
     engine.populate_render_pass().unwrap();
+    engine.populate_descriptor_set_layout().unwrap();
     engine.populate_graphics_pipeline().unwrap();
     engine.populate_framebuffers().unwrap();
-    engine.populate_command_pool_and_buffers().unwrap();
+    engine.populate_command_pool().unwrap();
+    //engine.populate_uniform_buffers().unwrap();
+    engine.populate_descriptor_pool().unwrap();
+    engine.populate_texture_image().unwrap();
+    engine.populate_texture_image_view().unwrap();
+    engine.populate_texture_sampler().unwrap();
+    engine.populate_descriptor_sets().unwrap();
+    engine.populate_command_buffers().unwrap();
     engine.populate_synchronization_primitives().unwrap();
     let quit_mutex = std::sync::Arc::new(std::sync::Mutex::new(false));
     let handle = {
         let quit_mutex = std::sync::Arc::clone(&quit_mutex);
         std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_millis(1000));
+            std::thread::sleep(std::time::Duration::from_millis(3000));
             *(quit_mutex.lock().unwrap()) = true;
         })
     };
