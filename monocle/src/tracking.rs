@@ -198,6 +198,13 @@ impl<T> FrameMap<T> {
     }
 }
 
+struct Texture {
+    pub texture_image: vk::Image,
+    pub texture_image_memory: vk::DeviceMemory,
+    pub texture_image_view: vk::ImageView,
+    pub texture_sampler: vk::Sampler,
+}
+
 struct VulkanEngine {
     pub entry: ash::Entry,
     pub instance: ash::Instance,
@@ -227,10 +234,7 @@ struct VulkanEngine {
     pub render_finished_semaphores: FrameMap<vk::Semaphore>,
     pub in_flight_fences: FrameMap<vk::Fence>,
     pub descriptor_sets: FrameMap<vk::DescriptorSet>,
-    pub texture_image: vk::Image,
-    pub texture_image_memory: vk::DeviceMemory,
-    pub texture_image_view: vk::ImageView,
-    pub texture_sampler: vk::Sampler,
+    pub current_cam_frame: Texture,
 }
 
 impl VulkanEngine {
@@ -238,7 +242,7 @@ impl VulkanEngine {
         let sdl_context = sdl2::init().unwrap();
         let video = sdl_context.video().unwrap();
         let mut window_builder =
-            sdl2::video::WindowBuilder::new(&video, "monocle", 1280, 720);
+            sdl2::video::WindowBuilder::new(&video, "monocle", 640, 480);
         let window = window_builder.vulkan().build().unwrap();
 
         let vk_layers = match level {
@@ -379,10 +383,12 @@ impl VulkanEngine {
             render_finished_semaphores: FrameMap::new(vk::Semaphore::null()),
             in_flight_fences: FrameMap::new(vk::Fence::null()),
             descriptor_sets: FrameMap::new(vk::DescriptorSet::null()),
-            texture_image: vk::Image::null(),
-            texture_image_memory: vk::DeviceMemory::null(),
-            texture_image_view: vk::ImageView::null(),
-            texture_sampler: vk::Sampler::null(),
+            current_cam_frame: Texture {
+                texture_image: vk::Image::null(),
+                texture_image_memory: vk::DeviceMemory::null(),
+                texture_image_view: vk::ImageView::null(),
+                texture_sampler: vk::Sampler::null(),
+            },
         })
     }
 
@@ -625,7 +631,7 @@ impl VulkanEngine {
             vk::SubpassDescription::builder()
                 .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS)
                 .color_attachments(&[color_attachment_ref])
-                .build() // a bit sus
+                .build()
         ];
         let dependencies = [
             vk::SubpassDependency::builder()
@@ -651,6 +657,12 @@ impl VulkanEngine {
         let ubo_layout_bindings = [
             vk::DescriptorSetLayoutBinding::builder()
                 .binding(0)
+                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                .descriptor_count(1)
+                .stage_flags(vk::ShaderStageFlags::FRAGMENT)
+                .build(),
+            vk::DescriptorSetLayoutBinding::builder()
+                .binding(1)
                 .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
                 .descriptor_count(1)
                 .stage_flags(vk::ShaderStageFlags::FRAGMENT)
@@ -691,10 +703,38 @@ impl VulkanEngine {
 
           layout(location = 0) in vec2 position;
           layout(location = 0) out vec4 color;
-          layout(binding = 0) uniform sampler2D image;
+          layout(binding = 0) uniform sampler2D previous_frame;
+          layout(binding = 1) uniform sampler2D current_frame;
 
           void main() {
-              color = texture(image, position);
+              // int best_x_shift = -1;
+              // int best_y_shift = -1;
+              // float best_shift_quality = -1.0;
+              // for (int x = 0; x < 50; ++x) {
+              //     for (int y = 0; y < 50; ++y) {
+              //         float x_shift = x / 50.0;
+              //         float y_shift = y / 50.0;
+              //         vec2 shifted = vec2(
+              //             position.x + x_shift,
+              //             position.y + y_shift);
+              //         vec4 c_shifted = vec4(0.0, 0.0, 0.0, 0.0);
+              //         if ((shifted.x <= 1.0) && (shifted.y <= 1.0) && (shifted.x >= 0.0) && (shifted.y >= 0.0)) {
+              //           c_shifted = texture(image, shifted);
+              //         }
+              //
+              //
+              //     }
+              // }
+              vec4 c_shifted = vec4(0.0, 0.0, 0.0, 0.0);
+              vec2 shifted = vec2(position.x + 0.02, position.y + 0.02);
+              if ((shifted.x <= 1.0) && (shifted.y <= 1.0) && (shifted.x >= 0.0) && (shifted.y >= 0.0)) {
+                c_shifted = texture(current_frame, shifted);
+              }
+              vec4 c = texture(current_frame, position);
+              color = sqrt((c_shifted - c) * (c_shifted - c));
+              color.r = 0;
+              color.g = 0;
+              color.a = 255;
           }
         "#;
 
@@ -885,7 +925,11 @@ impl VulkanEngine {
             vk::DescriptorPoolSize::builder()
                 .ty(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
                 .descriptor_count(MAX_FRAMES_IN_FLIGHT as u32)
-                .build()
+                .build(),
+            vk::DescriptorPoolSize::builder()
+                .ty(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                .descriptor_count(MAX_FRAMES_IN_FLIGHT as u32)
+                .build(),
         ];
         let descriptor_pool_create_info =
             vk::DescriptorPoolCreateInfo::builder()
@@ -1002,9 +1046,9 @@ impl VulkanEngine {
     }
 
     pub fn populate_texture_image(&mut self) -> VkResult<()> {
-        let bmp = bmp::open("/home/remy/Downloads/texture.bmp").unwrap();
-        let image_size = bmp.get_width() * bmp.get_height() * 4;
-        let mut image_vec: Vec<u8> = Vec::new();
+        let width = 640;
+        let height = 480;
+        let image_size = width * height * 4;
 
         let (staging_buffer, staging_buffer_memory) = self.create_buffer(
             image_size as u64,
@@ -1023,13 +1067,12 @@ impl VulkanEngine {
         };
         {
             let mut i = 0;
-            for y in 0 .. bmp.get_height() {
-                for x in 0 .. bmp.get_width() {
-                    let pixel = bmp.get_pixel(x, y);
+            for y in 0 .. height {
+                for x in 0 .. width {
                     unsafe {
-                        *ptr.offset(i + 0) = pixel.r;
-                        *ptr.offset(i + 1) = pixel.g;
-                        *ptr.offset(i + 2) = pixel.b;
+                        *ptr.offset(i + 0) = 255u8;
+                        *ptr.offset(i + 1) = 0u8;
+                        *ptr.offset(i + 2) = 0u8;
                         *ptr.offset(i + 3) = 255u8;
                     }
                     i += 4;
@@ -1043,25 +1086,25 @@ impl VulkanEngine {
         let image_info = vk::ImageCreateInfo::builder()
             .image_type(vk::ImageType::TYPE_2D)
             .extent(vk::Extent3D {
-                width: bmp.get_width(),
-                height: bmp.get_height(),
+                width: width,
+                height: height,
                 depth: 1,
             })
             .mip_levels(1)
             .array_layers(1)
             .format(vk::Format::R8G8B8A8_SRGB)
-            .tiling(vk::ImageTiling::OPTIMAL)
+            .tiling(vk::ImageTiling::LINEAR)
             .initial_layout(vk::ImageLayout::UNDEFINED)
             .usage(vk::ImageUsageFlags::TRANSFER_DST
                    | vk::ImageUsageFlags::SAMPLED)
             .sharing_mode(vk::SharingMode::EXCLUSIVE)
             .samples(vk::SampleCountFlags::TYPE_1);
-        self.texture_image = unsafe {
+        self.current_cam_frame.texture_image = unsafe {
             self.device.create_image(&image_info, None)?
         };
 
         let mem_requirements = unsafe {
-            self.device.get_image_memory_requirements(self.texture_image)
+            self.device.get_image_memory_requirements(self.current_cam_frame.texture_image)
         };
         let alloc_info = vk::MemoryAllocateInfo::builder()
             .allocation_size(mem_requirements.size)
@@ -1070,17 +1113,17 @@ impl VulkanEngine {
                     mem_requirements.memory_type_bits,
                     vk::MemoryPropertyFlags::DEVICE_LOCAL,
                 )?);
-        self.texture_image_memory = unsafe {
+        self.current_cam_frame.texture_image_memory = unsafe {
             self.device.allocate_memory(&alloc_info, None)?
         };
 
         unsafe {
             self.device.bind_image_memory(
-                self.texture_image, self.texture_image_memory, 0);
+                self.current_cam_frame.texture_image, self.current_cam_frame.texture_image_memory, 0);
         }
 
         self.transition_image_layout(
-            self.texture_image,
+            self.current_cam_frame.texture_image,
             vk::Format::R8G8B8A8_SRGB,
             vk::ImageLayout::UNDEFINED,
             vk::ImageLayout::TRANSFER_DST_OPTIMAL,
@@ -1088,13 +1131,13 @@ impl VulkanEngine {
 
         self.copy_buffer_to_image(
             staging_buffer,
-            self.texture_image,
-            bmp.get_width(),
-            bmp.get_height(),
+            self.current_cam_frame.texture_image,
+            width,
+            height,
         )?;
 
         self.transition_image_layout(
-            self.texture_image,
+            self.current_cam_frame.texture_image,
             vk::Format::R8G8B8A8_SRGB,
             vk::ImageLayout::TRANSFER_DST_OPTIMAL,
             vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
@@ -1110,7 +1153,7 @@ impl VulkanEngine {
 
     pub fn populate_texture_image_view(&mut self) -> VkResult<()> {
         let view_info = vk::ImageViewCreateInfo::builder()
-            .image(self.texture_image)
+            .image(self.current_cam_frame.texture_image)
             .view_type(vk::ImageViewType::TYPE_2D)
             .format(vk::Format::R8G8B8A8_SRGB)
             .subresource_range(vk::ImageSubresourceRange::builder()
@@ -1120,7 +1163,7 @@ impl VulkanEngine {
                                .base_array_layer(0)
                                .layer_count(1)
                                .build());
-        self.texture_image_view = unsafe {
+        self.current_cam_frame.texture_image_view = unsafe {
             self.device.create_image_view(&view_info, None)?
         };
         Ok(())
@@ -1148,7 +1191,7 @@ impl VulkanEngine {
             .min_lod(0.0)
             .max_lod(0.0);
 
-        self.texture_sampler = unsafe {
+        self.current_cam_frame.texture_sampler = unsafe {
             self.device.create_sampler(&sampler_info, None)?
         };
 
@@ -1172,20 +1215,29 @@ impl VulkanEngine {
         for (frame, descriptor_set) in self.descriptor_sets.iter() {
             let image_info = vk::DescriptorImageInfo::builder()
                 .image_layout(vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL)
-                .image_view(self.texture_image_view)
-                .sampler(self.texture_sampler)
+                .image_view(self.current_cam_frame.texture_image_view)
+                .sampler(self.current_cam_frame.texture_sampler)
                 .build();
 
-            let descriptor_write = vk::WriteDescriptorSet::builder()
-                .dst_set(*descriptor_set)
-                .dst_binding(0)
-                .dst_array_element(0)
-                .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
-                .image_info(&[image_info])
-                .build();
+            let descriptor_writes = [
+                vk::WriteDescriptorSet::builder()
+                    .dst_set(*descriptor_set)
+                    .dst_binding(0)
+                    .dst_array_element(0)
+                    .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                    .image_info(&[image_info])
+                    .build(),
+                vk::WriteDescriptorSet::builder()
+                    .dst_set(*descriptor_set)
+                    .dst_binding(1)
+                    .dst_array_element(0)
+                    .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER)
+                    .image_info(&[image_info])
+                    .build(),
+            ];
 
             unsafe {
-                self.device.update_descriptor_sets(&[descriptor_write], &[]);
+                self.device.update_descriptor_sets(&descriptor_writes, &[]);
             }
         }
         Ok(())
@@ -1398,10 +1450,65 @@ impl VulkanEngine {
                 &self.instance, &self.device);
             swapchain_inst.destroy_swapchain(self.swapchain, None);
 
-            self.device.destroy_sampler(self.texture_sampler, None);
-            self.device.destroy_image_view(self.texture_image_view, None);
-            self.device.destroy_image(self.texture_image, None);
-            self.device.free_memory(self.texture_image_memory, None);
+            self.device.destroy_sampler(self.current_cam_frame.texture_sampler, None);
+            self.device.destroy_image_view(self.current_cam_frame.texture_image_view, None);
+            self.device.destroy_image(self.current_cam_frame.texture_image, None);
+            self.device.free_memory(self.current_cam_frame.texture_image_memory, None);
+        }
+    }
+}
+
+struct VulkanPointer {
+    ptr: *mut u8,
+}
+
+unsafe impl Send for VulkanPointer {}
+unsafe impl Sync for VulkanPointer {}
+
+fn convert_yuyv_to_rgba(yuyv: *const u8, rgba: *mut u8,
+                        input_width: usize, input_height: usize,
+                        output_width: usize, output_height: usize) {
+    for y in 0 .. input_height {
+        for x in (0 .. input_width).step_by(2) {
+            let i = (((y * input_width) + x) * 2) as isize;
+            let j = (((y * output_width) + x) * 4) as isize;
+
+            let (y0, u0, v0) = unsafe {
+                let y = *yuyv.offset(i + 0) as f32;
+                let u = *yuyv.offset(i + 1) as f32;
+                let v = *yuyv.offset(i + 3) as f32;
+                (y, u, v)
+            };
+            let r0_float = y0 + 1.4065 * (v0 - 128.0);
+            let g0_float = y0 - 0.3455 * (u0 - 128.0) - 0.7169 * (v0 - 128.0);
+            let b0_float = y0 + 1.1790 * (u0 - 128.0);
+            let r0 = f32::min(f32::max(r0_float, 0.0), 255.0) as u8;
+            let g0 = f32::min(f32::max(g0_float, 0.0), 255.0) as u8;
+            let b0 = f32::min(f32::max(b0_float, 0.0), 255.0) as u8;
+
+            let (y1, u1, v1) = unsafe {
+                let y = *yuyv.offset(i + 2) as f32;
+                let u = *yuyv.offset(i + 1) as f32;
+                let v = *yuyv.offset(i + 3) as f32;
+                (y, u, v)
+            };
+            let r1_float = y1 + 1.4065 * (v1 - 128.0);
+            let g1_float = y1 - 0.3455 * (u1 - 128.0) - 0.7169 * (v1 - 128.0);
+            let b1_float = y1 + 1.1790 * (u1 - 128.0);
+            let r1 = f32::min(f32::max(r1_float, 0.0), 255.0) as u8;
+            let g1 = f32::min(f32::max(g1_float, 0.0), 255.0) as u8;
+            let b1 = f32::min(f32::max(b1_float, 0.0), 255.0) as u8;
+
+            unsafe {
+                *rgba.offset(j + 0) = r0;
+                *rgba.offset(j + 1) = g0;
+                *rgba.offset(j + 2) = b0;
+                *rgba.offset(j + 3) = 255u8;
+                *rgba.offset(j + 4) = r1;
+                *rgba.offset(j + 5) = g1;
+                *rgba.offset(j + 6) = b1;
+                *rgba.offset(j + 7) = 255u8;
+            }
         }
     }
 }
@@ -1423,13 +1530,109 @@ pub fn main() {
     engine.populate_command_buffers().unwrap();
     engine.populate_synchronization_primitives().unwrap();
     let quit_mutex = std::sync::Arc::new(std::sync::Mutex::new(false));
-    let handle = {
+    let quit_handle = {
         let quit_mutex = std::sync::Arc::clone(&quit_mutex);
         std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_millis(3000));
+            std::thread::sleep(std::time::Duration::from_millis(10000));
             *(quit_mutex.lock().unwrap()) = true;
         })
     };
+
+    let pointer = VulkanPointer {
+        ptr: unsafe {
+            std::mem::transmute(engine.device.map_memory(
+                engine.current_cam_frame.texture_image_memory,
+                0,
+                4 * 640 * 480 as u64,
+                vk::MemoryMapFlags::empty(),
+            ).unwrap())
+        },
+    };
+
+    let ctx = uvc::Context::new().unwrap();
+    let dev = ctx.find_device(None, None, None).unwrap();
+    let devh = dev.open().unwrap();
+    for format_descriptor in devh.supported_formats() {
+        println!("DEBUG: format descriptor: {:?}",
+                 format_descriptor.subtype());
+        for frame_descriptor in format_descriptor.supported_formats() {
+            println!("DEBUG:   frame descriptor: {}x{}, {:?}, {:?}",
+                     frame_descriptor.width(),
+                     frame_descriptor.height(),
+                     frame_descriptor.subtype(),
+                     frame_descriptor.intervals());
+        }
+    }
+    let format = uvc::StreamFormat {
+        width: 640,
+        height: 480,
+        fps: 30,
+        format: uvc::FrameFormat::YUYV,
+    };
+    let mut streamh = devh
+        .get_stream_handle_with_format(format)
+        .expect("Could not open a stream with this format");
+
+    fn callback(frame: &uvc::Frame, data: &mut VulkanPointer) {
+        // for y in 0 .. 512 {
+        //     for x in 0 .. 512 {
+        //         let i = y * 512 + x;
+        //         unsafe {
+        //             *data.0.ptr.offset(i * 4 + 0) = data.1;
+        //             *data.0.ptr.offset(i * 4 + 1) = data.1;
+        //             *data.0.ptr.offset(i * 4 + 2) = data.1;
+        //             *data.0.ptr.offset(i * 4 + 3) = data.1;
+        //         }
+        //     }
+        // }
+        // if data.1 == 248 {
+        //     (*data).1 = 0;
+        // } else {
+        //     (*data).1 = data.1 + 8;
+        // }
+
+        std::thread::sleep(std::time::Duration::from_millis(1));
+        // println!("DEBUG: {}x{}, {} bytes",
+        //          frame.width(), frame.height(),
+        //          frame.to_bytes().len());
+        convert_yuyv_to_rgba(frame.to_bytes().as_ptr(), data.ptr, 640, 480, 640, 480);
+        // engine.device.flush_mapped_memory_ranges(&[range]);
+
+        // if frame.sequence() < 10 {
+        //     // println!("DEBUG: {:?}", frame.format());
+        //     convert_yuyv_to_rgba(frame.to_bytes().as_ptr(), data.ptr, frame.to_bytes().len() / 4);
+        //     unsafe {
+        //         (*data).ptr = data.ptr.offset(1280 * 75 * 4);
+        //         for i in 0 .. 1280 {
+        //             *data.ptr.offset(i * 4 + 0) = 255;
+        //             *data.ptr.offset(i * 4 + 1) = 0;
+        //             *data.ptr.offset(i * 4 + 2) = 0;
+        //             *data.ptr.offset(i * 4 + 3) = 255;
+        //         }
+        //         (*data).ptr = data.ptr.offset(1280 * 4);
+        //     }
+        // }
+
+    }
+
+    let webcam_stream = streamh.start_stream(callback, pointer).unwrap();
+
+    // std::thread::spawn(move || {
+    //     // let _stream = streamh.start_stream(callback, ()).unwrap();
+    //     for y in 0 .. 512 {
+    //         for x in 0 .. 512 {
+    //             let i = y * 512 + x;
+    //             unsafe {
+    //                 *ptr.offset(i * 4 + 0) = 0;
+    //                 *ptr.offset(i * 4 + 1) = 0;
+    //                 *ptr.offset(i * 4 + 2) = 0;
+    //                 *ptr.offset(i * 4 + 3) = 0;
+    //             }
+    //         }
+    //         std::thread::sleep(std::time::Duration::from_millis(1));
+    //     }
+    // })
+
     let mut event_pump = engine.sdl_context.event_pump().unwrap();
     let mut counter = 0;
     loop {
@@ -1443,7 +1646,8 @@ pub fn main() {
         engine.device.device_wait_idle().unwrap();
     }
     println!("Displayed {} frames", counter);
-    handle.join().unwrap();
+    quit_handle.join().unwrap();
+    webcam_stream.stop();
     engine.destroy();
 }
 
